@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>NAIS3</title>
+    <!--
+      모바일 뷰포트 메타는 의도적으로 생략 — 현재 렌더러 레이아웃은 데스크톱 기준이라
+      가상 뷰포트(~980px) + 핀치 줌이 1차 포팅에서 더 실용적이다. 모바일 전용 레이아웃은 후속.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.png" />
+    <meta name="theme-color" content="#0f0f10" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

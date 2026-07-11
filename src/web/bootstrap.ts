@@ -1,0 +1,45 @@
+import JSZip from 'jszip'
+import { GenerationQueue } from '@main/queue/generation-queue'
+import type { NaisApi } from '../preload/index'
+import { initWebDb } from './backend/db'
+import { getSetting } from './backend/db/settings'
+import { invoke, on, registerWebHandlers } from './backend/ipc'
+import { runGeneration } from './backend/pipeline'
+import { purgeStaleMemoryFiles, webImageUrl } from './backend/images/storage'
+
+/**
+ * 웹 부트스트랩 — Electron의 main/preload 역할을 브라우저 안에서 수행한 뒤
+ * 기존 렌더러를 "무수정"으로 마운트한다.
+ * 순서가 중요하다: DB → 큐/핸들러 → window.nais → 서비스워커 → 렌더러.
+ */
+export async function start(): Promise<void> {
+  // jszip의 nodebuffer 지원 감지는 모듈 로드 시점 — Buffer 폴리필(main.ts)이 먼저 깔렸으므로
+  // 재사용하는 client.ts의 async('nodebuffer') 경로를 강제로 활성화한다.
+  ;(JSZip as unknown as { support: { nodebuffer: boolean } }).support.nodebuffer = true
+
+  // 지난 세션의 자동저장 OFF 원본 정리 (데스크톱의 "재시작 시 메모리 소멸"과 동일 의미)
+  await purgeStaleMemoryFiles().catch(() => {})
+
+  const { version: dbVersion } = await initWebDb()
+
+  const queue = new GenerationQueue(runGeneration)
+  const savedDelay = Number(getSetting('gen_delay_ms'))
+  if (Number.isFinite(savedDelay) && savedDelay >= 0) queue.setDelayMs(savedDelay)
+
+  registerWebHandlers({ dbVersion, queue })
+
+  const api: NaisApi = { invoke, on, imageUrl: webImageUrl }
+  ;(window as unknown as { nais: NaisApi }).nais = api
+
+  // 이미지 서빙용 서비스워커 (/nais-image/). 실패해도 치명적이진 않다 —
+  // 최근 생성분은 오브젝트 URL 캐시로 표시되고, 히스토리 카드는 DB 썸네일을 쓴다.
+  if ('serviceWorker' in navigator) {
+    try {
+      await navigator.serviceWorker.register('/sw.js')
+    } catch (e) {
+      console.warn('[web] 서비스워커 등록 실패 — 저장 이미지 풀해상도 표시가 제한됩니다', e)
+    }
+  }
+
+  await import('@renderer/main')
+}

@@ -21,7 +21,11 @@
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:web": "vite --config vite.web.config.ts",
+    "build:web": "npm run typecheck:webapp && vite build --config vite.web.config.ts",
+    "preview:web": "vite preview --config vite.web.config.ts",
+    "typecheck:webapp": "tsc --noEmit -p tsconfig.webapp.json --composite false"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -57,7 +61,9 @@
     "@types/node": "^22.19.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/sql.js": "^1.4.11",
     "@vitejs/plugin-react": "^5.1.1",
+    "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron": "^39.2.6",
@@ -72,6 +78,7 @@
     "prettier": "^3.7.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "sql.js": "^1.14.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.1.16",
     "typescript": "^5.9.3",

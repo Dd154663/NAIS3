@@ -34,5 +34,6 @@ export const UC_PRESET_OPTIONS: { value: UcPresetIndex; label: string }[] = [
 ]
 
 export function imageUrl(filePath: string): string {
-  return `nais-image://local/?path=${encodeURIComponent(filePath)}`
+  // 플랫폼이 자체 URL 스킴을 제공하면 그것을 (웹 빌드 등), 아니면 Electron 프로토콜
+  return window.nais.imageUrl?.(filePath) ?? `nais-image://local/?path=${encodeURIComponent(filePath)}`
 }
