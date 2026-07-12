@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -72,12 +72,59 @@ function serveResources(): Plugin {
   }
 }
 
+/**
+ * 빌드 후 sw.js의 `self.__PRECACHE__ = null`을 실제 에셋 목록으로 치환 — 오프라인 콜드 스타트용.
+ * tags.json(16MB)은 제외(지연 로드 유지). 캐시 버전 키는 에셋 목록의 해시 — 파일명이
+ * 콘텐츠 해시라 내용이 바뀌면 목록도 바뀐다. dev 서버에선 치환이 없어 프리캐시가 꺼진다.
+ */
+function swPrecache(): Plugin {
+  let assets: string[] = []
+  return {
+    name: 'nais-web:sw-precache',
+    apply: 'build',
+    generateBundle(_, bundle) {
+      assets = Object.keys(bundle).filter(
+        (f) => !f.endsWith('.map') && f !== 'tags.json' && f !== 'index.html'
+      )
+    },
+    closeBundle() {
+      const base = process.env.WEB_BASE ?? '/'
+      const list = [
+        base,
+        `${base}index.html`,
+        `${base}icon.png`,
+        `${base}manifest.webmanifest`,
+        ...assets.map((f) => base + f)
+      ]
+      let hash = 5381
+      for (const ch of JSON.stringify(list)) hash = ((hash * 33) ^ ch.charCodeAt(0)) >>> 0
+      const version = `nais3-shell-${hash.toString(36)}`
+      const swPath = r('out/web/sw.js')
+      const code = readFileSync(swPath, 'utf-8')
+      writeFileSync(
+        swPath,
+        code.replace(
+          'self.__PRECACHE__ = null',
+          `self.__PRECACHE__ = ${JSON.stringify({ version, assets: list })}`
+        )
+      )
+    }
+  }
+}
+
 export default defineConfig({
   root: r('src/web'),
   // GitHub Pages 등 하위 경로 배포용 (예: /NAIS3/). 미지정 시 루트 — dev와 로컬 preview는 '/'
   base: process.env.WEB_BASE ?? '/',
   publicDir: r('src/web/public'),
-  plugins: [redirectMainDb(), injectTailwindSource(), serveResources(), react(), tailwindcss()],
+  plugins: [
+    redirectMainDb(),
+    injectTailwindSource(),
+    serveResources(),
+    swPrecache(),
+    react(),
+    tailwindcss()
+  ],
   resolve: {
     alias: {
       '@renderer': r('src/renderer/src'),

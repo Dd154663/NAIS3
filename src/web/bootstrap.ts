@@ -2,8 +2,8 @@ import JSZip from 'jszip'
 import { GenerationQueue } from '@main/queue/generation-queue'
 import type { NaisApi } from '../preload/index'
 import { initWebDb } from './backend/db'
-import { getSetting } from './backend/db/settings'
-import { invoke, on, registerWebHandlers } from './backend/ipc'
+import { getSetting, setSetting } from './backend/db/settings'
+import { broadcast, invoke, on, registerWebHandlers } from './backend/ipc'
 import { runGeneration } from './backend/pipeline'
 import { purgeStaleMemoryFiles, webImageUrl } from './backend/images/storage'
 
@@ -28,14 +28,34 @@ export async function start(): Promise<void> {
 
   registerWebHandlers({ dbVersion, queue })
 
+  // 웹검색 모드는 Electron <webview> 전용이라 웹에선 동작하지 않는다 —
+  // "표시할 탭" 설정이 미설정일 때만 기본 숨김 (사용자가 설정에서 다시 켤 수 있음)
+  if (getSetting('ui_hidden_pages') === null) {
+    setSetting('ui_hidden_pages', JSON.stringify(['websearch']))
+  }
+
+  // 브라우저의 저장소 자동 회수(특히 iOS 미사용 시 삭제) 방지 요청 — 거부돼도 무해
+  if (navigator.storage?.persist) {
+    void navigator.storage.persist().catch(() => {})
+  }
+
   const api: NaisApi = { invoke, on, imageUrl: webImageUrl }
   ;(window as unknown as { nais: NaisApi }).nais = api
 
-  // 이미지 서빙용 서비스워커 (/nais-image/). 실패해도 치명적이진 않다 —
+  // 이미지 서빙 + 앱 셸 캐시 서비스워커. 실패해도 치명적이진 않다 —
   // 최근 생성분은 오브젝트 URL 캐시로 표시되고, 히스토리 카드는 DB 썸네일을 쓴다.
   if ('serviceWorker' in navigator) {
     try {
-      await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
+      const reg = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
+      // 새 배포 감지 → 데스크톱 자동 업데이트 UI 재활용 ("재시작" = 웹에선 reload)
+      reg.addEventListener('updatefound', () => {
+        const worker = reg.installing
+        worker?.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            broadcast('update:status', { state: 'downloaded' })
+          }
+        })
+      })
     } catch (e) {
       console.warn('[web] 서비스워커 등록 실패 — 저장 이미지 풀해상도 표시가 제한됩니다', e)
     }

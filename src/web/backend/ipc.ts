@@ -385,7 +385,10 @@ export function registerWebHandlers(ctx: { dbVersion: number; queue: GenerationQ
       document.documentElement.style.backgroundColor = color
     }
   })
-  handle('update:start', () => {})
+  // 웹의 "업데이트 설치 후 재시작" = 새 SW/에셋으로 reload (bootstrap의 updatefound 감지와 짝)
+  handle('update:start', () => {
+    window.location.reload()
+  })
   handle('images:showInFolder', () => {})
 
   handle('notify:done', ({ done, failed }) => {
