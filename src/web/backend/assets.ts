@@ -16,7 +16,7 @@ export function ensureResource(name: 't5_tokenizer.json' | 'tags.json'): Promise
   if (existing) return existing
 
   const p = (async () => {
-    const res = await fetch(`/${name}`)
+    const res = await fetch(`${import.meta.env.BASE_URL}${name}`)
     if (!res.ok) throw new Error(`리소스 로드 실패: /${name} (${res.status})`)
     __registerVirtualFile(`/app/resources/${name}`, await res.text())
     loaded.add(name)

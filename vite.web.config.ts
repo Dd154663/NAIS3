@@ -74,6 +74,8 @@ function serveResources(): Plugin {
 
 export default defineConfig({
   root: r('src/web'),
+  // GitHub Pages 등 하위 경로 배포용 (예: /NAIS3/). 미지정 시 루트 — dev와 로컬 preview는 '/'
+  base: process.env.WEB_BASE ?? '/',
   publicDir: r('src/web/public'),
   plugins: [redirectMainDb(), injectTailwindSource(), serveResources(), react(), tailwindcss()],
   resolve: {

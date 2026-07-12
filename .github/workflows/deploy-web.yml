@@ -1,0 +1,49 @@
+# 웹(모바일/PWA) 빌드를 GitHub Pages에 배포 — src/web/README.md 참조.
+# mobile-port 브랜치에 push할 때마다 https://<owner>.github.io/<repo>/ 가 갱신된다.
+name: Deploy Web (GitHub Pages)
+
+on:
+  push:
+    branches: [mobile-port]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # --ignore-scripts: electron-builder postinstall(네이티브 리빌드)은 웹 빌드에 불필요
+      - run: npm ci --ignore-scripts
+
+      - run: npm run build:web
+        env:
+          WEB_BASE: /${{ github.event.repository.name }}/
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out/web
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -17,7 +17,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
-  if (url.origin === self.location.origin && url.pathname === '/nais-image/') {
+  // base 하위 배포(GitHub Pages 등) 대응 — SW scope에서 base 경로를 얻는다 (예: /NAIS3/)
+  const basePath = new URL(self.registration.scope).pathname
+  if (url.origin === self.location.origin && url.pathname === `${basePath}nais-image/`) {
     const path = decodeURIComponent(url.searchParams.get('path') || '')
     event.respondWith(serveImage(path))
   }

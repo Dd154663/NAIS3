@@ -35,7 +35,7 @@ export async function start(): Promise<void> {
   // 최근 생성분은 오브젝트 URL 캐시로 표시되고, 히스토리 카드는 DB 썸네일을 쓴다.
   if ('serviceWorker' in navigator) {
     try {
-      await navigator.serviceWorker.register('/sw.js')
+      await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
     } catch (e) {
       console.warn('[web] 서비스워커 등록 실패 — 저장 이미지 풀해상도 표시가 제한됩니다', e)
     }

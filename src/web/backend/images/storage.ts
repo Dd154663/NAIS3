@@ -41,9 +41,12 @@ function cacheObjectUrl(filePath: string, bytes: Buffer, mime: string): void {
   }
 }
 
-/** 렌더러 imageUrl()이 쓰는 URL — 캐시 히트 시 오브젝트 URL, 아니면 SW 경로 */
+/** 렌더러 imageUrl()이 쓰는 URL — 캐시 히트 시 오브젝트 URL, 아니면 SW 경로 (base 하위 배포 대응) */
 export function webImageUrl(filePath: string): string {
-  return objectUrls.get(filePath) ?? `/nais-image/?path=${encodeURIComponent(filePath)}`
+  return (
+    objectUrls.get(filePath) ??
+    `${import.meta.env.BASE_URL}nais-image/?path=${encodeURIComponent(filePath)}`
+  )
 }
 
 export function isMemoryPath(filePath: string): boolean {
