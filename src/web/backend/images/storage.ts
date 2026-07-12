@@ -3,6 +3,7 @@ import type { DirectorMethod, HistoryItem, ImageMetadata } from '@shared/types'
 import { broadcastRaw } from '../../bus'
 import { getDb } from '../db'
 import { idbDelete, idbKeys, idbPut } from '../idb'
+import { getStorageProvider } from '../storage-provider'
 import { makeThumbnail } from '../image-utils'
 import { injectNais3Params } from '../png-text'
 
@@ -71,12 +72,11 @@ export function thumbnailByPath(filePath: string): Buffer | null {
   return row?.thumbnail ?? null
 }
 
-/** IndexedDB에서 원본 bytes 읽기 (SW 없이 백엔드가 직접 읽을 때 — readForSource 등) */
+/** 원본 bytes 읽기 (SW 없이 백엔드가 직접 읽을 때 — readForSource 등) */
 export async function readImageBytes(filePath: string): Promise<Buffer | null> {
   if (isMemoryPath(filePath)) return getMemoryImage(filePath)
-  const { idbGet } = await import('../idb')
-  const stored = await idbGet<{ bytes: Uint8Array }>('files', filePath)
-  return stored ? Buffer.from(stored.bytes) : null
+  const bytes = await getStorageProvider().get(filePath)
+  return bytes ? Buffer.from(bytes) : null
 }
 
 function mimeOf(ext: string): string {
@@ -92,7 +92,9 @@ export async function purgeStaleMemoryFiles(): Promise<void> {
 
 async function putFile(filePath: string, bytes: Buffer, mime: string): Promise<void> {
   const u8 = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength).slice()
-  await idbPut('files', filePath, { bytes: u8, mime })
+  // memory://는 세션 링버퍼(외부 저장 대상 아님) — 항상 로컬 idb. web:// 원본만 프로바이더 경유.
+  if (isMemoryPath(filePath)) await idbPut('files', filePath, { bytes: u8, mime })
+  else await getStorageProvider().put(filePath, u8, mime)
 }
 
 async function putThumb(filePath: string, thumb: Buffer): Promise<void> {
@@ -103,8 +105,9 @@ async function putThumb(filePath: string, thumb: Buffer): Promise<void> {
 export async function deleteFileBytes(filePath: string): Promise<void> {
   memoryImages.delete(filePath)
   dropObjectUrl(filePath)
-  await idbDelete('files', filePath)
-  await idbDelete('thumbs', filePath)
+  if (isMemoryPath(filePath)) await idbDelete('files', filePath)
+  else await getStorageProvider().delete(filePath)
+  await idbDelete('thumbs', filePath) // 썸네일은 항상 로컬
 }
 
 /** 자동저장 OFF 저장 — 데스크톱과 동일: 원본은 메모리(+SW 서빙용 IndexedDB), DB엔 썸네일 행 */
