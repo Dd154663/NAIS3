@@ -1,13 +1,15 @@
+import { inflate, ungzip } from 'pako'
+
 /**
- * zlib shim — images/metadata.ts가 import하는 이름만 제공.
- * PNG zTXt/스텔스 메타데이터의 압축 해제 경로는 웹 1차 포팅에서 미지원
- * (비압축 tEXt와 DB payload 폴백 경로는 zlib 없이 동작한다).
+ * zlib shim — pako(순수 JS, 동기 API)로 구현.
+ * images/metadata.ts의 zTXt/iTXt 압축 청크(inflateSync)와
+ * 스텔스 메타데이터(gunzipSync)가 원본 코드 무수정으로 동작한다.
  */
 
-export function inflateSync(_buf: Uint8Array): never {
-  throw new Error('[web] zlib.inflateSync는 웹에서 지원되지 않습니다')
+export function inflateSync(buf: Uint8Array): Buffer {
+  return Buffer.from(inflate(buf))
 }
 
-export function gunzipSync(_buf: Uint8Array): never {
-  throw new Error('[web] zlib.gunzipSync는 웹에서 지원되지 않습니다')
+export function gunzipSync(buf: Uint8Array): Buffer {
+  return Buffer.from(ungzip(buf))
 }

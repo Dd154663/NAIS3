@@ -45,7 +45,15 @@ export async function start(): Promise<void> {
   if (import.meta.env.DEV) {
     const { getDb } = await import('./backend/db')
     const { idbGet, idbPut, idbKeys } = await import('./backend/idb')
-    ;(window as unknown as Record<string, unknown>).__naisDev = { getDb, idbGet, idbPut, idbKeys }
+    const { exportAllWeb, importAllWeb } = await import('./backend/backup')
+    ;(window as unknown as Record<string, unknown>).__naisDev = {
+      getDb,
+      idbGet,
+      idbPut,
+      idbKeys,
+      exportAllWeb,
+      importAllWeb
+    }
   }
 
   await import('@renderer/main')

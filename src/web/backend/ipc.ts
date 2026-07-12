@@ -103,6 +103,8 @@ import {
   updateScene
 } from '@main/scenes/repo'
 import { metadataFromPayloadJson, metadataFromPng } from '@main/images/metadata'
+import { importNais2 } from '@main/backup/nais2'
+import { exportAllWeb, importAllWeb } from './backup'
 import { getDb, getDbPath } from './db'
 import {
   deleteNaiToken,
@@ -652,6 +654,45 @@ export function registerWebHandlers(ctx: { dbVersion: number; queue: GenerationQ
     sceneImages(sceneId, limit, offset, favoritesOnly)
   )
   handle('scenes:openFolder', () => ({ ok: false }))
+
+  // ── 백업 (포맷·감지 분기는 데스크톱 ipc.ts와 동일, 파일 IO만 다운로드/picker) ──
+  handle('backup:export', async () => {
+    const stamp = new Date().toISOString().slice(0, 10)
+    const json = JSON.stringify(await exportAllWeb())
+    const { downloadBytes } = await import('./image-utils')
+    downloadBytes(new Blob([json], { type: 'application/json' }), `NAIS3-backup-${stamp}.json`)
+    return { saved: true }
+  })
+  handle('backup:import', async () => {
+    const [file] = await pickFiles('.json,application/json', false)
+    if (!file) return { canceled: true as const }
+    try {
+      const data = JSON.parse(await file.text()) as Record<string, unknown>
+      if (data._app === 'NAIS3') {
+        const { imported } = await importAllWeb(data)
+        return { summary: `NAIS3 백업 복원 완료 (${imported}개 항목)`, needsPromptReload: true }
+      }
+      if (Object.keys(data).some((k) => k.startsWith('nais2-'))) {
+        const r = importNais2(data)
+        const parts = [
+          r.characters ? `캐릭터 ${r.characters}` : '',
+          r.presets ? `프리셋 ${r.presets}` : '',
+          r.fragments ? `조각 ${r.fragments}` : '',
+          r.scenes ? `씬 ${r.scenes}` : '',
+          r.prompt ? '프롬프트' : ''
+        ].filter(Boolean)
+        return {
+          summary: parts.length
+            ? `NAIS2에서 ${parts.join(' · ')} 가져옴`
+            : '가져올 항목이 없습니다',
+          needsPromptReload: r.prompt
+        }
+      }
+      return { error: '알 수 없는 백업 형식입니다' }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
 
   // ── 태그/토큰 (리소스 지연 로드 후 원본 로직 재사용) ─────────
   handle('tags:search', async ({ query, limit }) => {
