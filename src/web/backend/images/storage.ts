@@ -1,5 +1,6 @@
 import { randomUUID } from '../../shims/crypto'
 import type { DirectorMethod, HistoryItem, ImageMetadata } from '@shared/types'
+import { broadcastRaw } from '../../bus'
 import { getDb } from '../db'
 import { idbDelete, idbKeys, idbPut } from '../idb'
 import { makeThumbnail } from '../image-utils'
@@ -26,27 +27,29 @@ const EPHEMERAL_KEEP = 20
 const memoryImages = new Map<string, Buffer>()
 
 // ── 오브젝트 URL 캐시 (SW 폴백 + 방금 생성한 이미지의 즉시 표시) ──
+// 워커에서 만든 blob URL은 같은 오리진의 메인 문서에서도 유효하다.
+// 메인의 imageUrl()이 동기 조회할 수 있도록 캐시/축출을 이벤트로 미러링한다 (_imageUrl* 내부 채널).
 const objectUrls = new Map<string, string>()
 const OBJECT_URL_KEEP = 40
 
-function cacheObjectUrl(filePath: string, bytes: Buffer, mime: string): void {
-  const old = objectUrls.get(filePath)
-  if (old) URL.revokeObjectURL(old)
-  const u8 = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength).slice()
-  objectUrls.set(filePath, URL.createObjectURL(new Blob([u8], { type: mime })))
-  if (objectUrls.size > OBJECT_URL_KEEP) {
-    const [oldestKey] = objectUrls.keys()
-    URL.revokeObjectURL(objectUrls.get(oldestKey)!)
-    objectUrls.delete(oldestKey)
-  }
+function dropObjectUrl(filePath: string): void {
+  const url = objectUrls.get(filePath)
+  if (!url) return
+  URL.revokeObjectURL(url)
+  objectUrls.delete(filePath)
+  broadcastRaw('_imageUrlDrop', { path: filePath })
 }
 
-/** 렌더러 imageUrl()이 쓰는 URL — 캐시 히트 시 오브젝트 URL, 아니면 SW 경로 (base 하위 배포 대응) */
-export function webImageUrl(filePath: string): string {
-  return (
-    objectUrls.get(filePath) ??
-    `${import.meta.env.BASE_URL}nais-image/?path=${encodeURIComponent(filePath)}`
-  )
+function cacheObjectUrl(filePath: string, bytes: Buffer, mime: string): void {
+  dropObjectUrl(filePath)
+  const u8 = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength).slice()
+  const url = URL.createObjectURL(new Blob([u8], { type: mime }))
+  objectUrls.set(filePath, url)
+  broadcastRaw('_imageUrlCache', { path: filePath, url })
+  if (objectUrls.size > OBJECT_URL_KEEP) {
+    const [oldestKey] = objectUrls.keys()
+    dropObjectUrl(oldestKey)
+  }
 }
 
 export function isMemoryPath(filePath: string): boolean {
@@ -99,11 +102,7 @@ async function putThumb(filePath: string, thumb: Buffer): Promise<void> {
 
 export async function deleteFileBytes(filePath: string): Promise<void> {
   memoryImages.delete(filePath)
-  const url = objectUrls.get(filePath)
-  if (url) {
-    URL.revokeObjectURL(url)
-    objectUrls.delete(filePath)
-  }
+  dropObjectUrl(filePath)
   await idbDelete('files', filePath)
   await idbDelete('thumbs', filePath)
 }

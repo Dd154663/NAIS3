@@ -3,7 +3,7 @@ import { ENDPOINTS } from '@main/nai/endpoints'
 import { enabledCharRefRows, enabledVibeRows, saveVibeEncoding } from '@main/refs/repo'
 import { randomUUID } from '../shims/crypto'
 import { getDb } from './db'
-import { makeCoverThumbnail, pickFiles, resizeContainPng } from './image-utils'
+import { makeCoverThumbnail, resizeContainPng } from './image-utils'
 import { deleteFileBytes, readImageBytes } from './images/storage'
 import { idbPut } from './idb'
 
@@ -83,12 +83,12 @@ const TABLES = {
   charref: 'charref_images'
 } as const
 
-/** 파일 picker(다중) → web://refs/ 저장 + 썸네일(192 cover webp q82) + 행 삽입 */
-export async function addRefImagesWeb(
+/** 파일 bytes(picker는 메인에서) → web://refs/ 저장 + 썸네일(192 cover webp q82) + 행 삽입 */
+export async function addRefFiles(
   kind: 'vibe' | 'charref',
-  folderId: number | null
+  folderId: number | null,
+  files: { name: string; mime: string; bytes: Uint8Array }[]
 ): Promise<number> {
-  const files = await pickFiles('image/png,image/jpeg,image/webp', true)
   if (files.length === 0) return 0
 
   const db = getDb()
@@ -99,13 +99,12 @@ export async function addRefImagesWeb(
   let order = max.m
 
   for (const file of files) {
-    const buf = Buffer.from(await file.arrayBuffer())
+    const buf = Buffer.from(file.bytes)
     const dot = file.name.lastIndexOf('.')
     const ext = dot > 0 ? file.name.slice(dot) : '.png'
     const name = dot > 0 ? file.name.slice(0, dot) : file.name
     const dest = `${REFS_PREFIX}${randomUUID()}${ext}`
-    const u8 = new Uint8Array(buf).slice()
-    await idbPut('files', dest, { bytes: u8, mime: file.type || 'image/png' })
+    await idbPut('files', dest, { bytes: new Uint8Array(buf).slice(), mime: file.mime || 'image/png' })
     const thumbnail = await makeCoverThumbnail(buf)
     db.prepare(
       `INSERT INTO ${table} (name, file_path, thumbnail, folder_id, sort_order, enabled)

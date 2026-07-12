@@ -8,7 +8,7 @@ import { getPresetName, getScene } from '@main/scenes/repo'
 import { getNaiToken, getSetting } from './db/settings'
 import { normalizeInpaintMask, resizeFillPng } from './image-utils'
 import { saveEphemeralImage, saveGeneratedImage } from './images/storage'
-import { broadcast } from './ipc'
+import { broadcast } from '../events'
 import { prepareCharRefs, prepareVibes } from './refs'
 
 /**

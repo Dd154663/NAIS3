@@ -1,7 +1,7 @@
 import { randomUUID } from '../shims/crypto'
 import { getDb } from './db'
 import { idbPut } from './idb'
-import { imageSize, makeThumbnail, pickFiles } from './image-utils'
+import { imageSize, makeThumbnail } from './image-utils'
 import { deleteFileBytes, readImageBytes } from './images/storage'
 
 /**
@@ -39,12 +39,14 @@ async function insertImageWeb(
     .run(name, dest, thumbnail, width, height, stackId)
 }
 
-/** 파일 picker(다중)로 가져오기 — 데스크톱 importViaDialog 대응 */
-export async function importViaPickerWeb(stackId: number | null): Promise<number> {
-  const files = await pickFiles('image/png,image/jpeg,image/webp', true)
+/** 파일 bytes(picker는 메인에서)로 가져오기 — 데스크톱 importViaDialog 대응 */
+export async function importFilesWeb(
+  files: { name: string; bytes: Uint8Array }[],
+  stackId: number | null
+): Promise<number> {
   for (const file of files) {
     const { name, ext } = splitName(file.name)
-    await insertImageWeb(Buffer.from(await file.arrayBuffer()), name, ext, stackId)
+    await insertImageWeb(Buffer.from(file.bytes), name, ext, stackId)
   }
   return files.length
 }

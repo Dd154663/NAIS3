@@ -1,41 +1,51 @@
 import type BetterSqlite3 from 'better-sqlite3'
-import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js'
-import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url'
+import sqlite3InitModule from '@sqlite.org/sqlite-wasm'
 import { migrations } from '@main/db/migrations'
 import { idbGet, idbPut } from '../idb'
 
 /**
- * 웹 DB 레이어 — better-sqlite3 대신 sql.js(WASM, 동기 API).
+ * 웹 DB 레이어 — 공식 SQLite WASM(@sqlite.org/sqlite-wasm) + opfs-sahpool VFS.
  *
- * 핵심 설계: src/main의 repo/마이그레이션 코드를 "무수정" 재사용하기 위해
- * better-sqlite3의 사용 표면(prepare/run/get/all/exec/pragma/transaction)을 흉내낸
- * 어댑터를 제공한다. vite.web.config.ts가 src/main/db/index.ts import를 이 모듈로
- * 리다이렉트하므로, repo 코드의 getDb()는 그대로 이 어댑터를 받는다.
+ * **Worker 전용.** opfs-sahpool(동기 파일 IO)은 Worker에서만 동작한다 — 재사용하는
+ * src/main repo들이 동기(better-sqlite3식) API라 이 제약이 워커 백엔드 구조의 근거다.
+ * (SharedArrayBuffer 기반 메인스레드 동기화는 GitHub Pages가 COOP/COEP 헤더를 못 줘 배제)
  *
- * 지속성: 인메모리 DB를 IndexedDB(kv: 'nais3.db')에 디바운스 export.
- * 마이그레이션 전 백업(kv: 'backup-pre-vN')은 데스크톱의 파일 백업과 같은 취지.
+ * better-sqlite3 사용 표면(prepare/run/get/all/exec/pragma/transaction)을 흉내내는
+ * WebDatabase 어댑터는 유지 — vite가 src/main/db import를 여기로 리다이렉트하므로
+ * repo 코드는 계속 무수정 재사용된다.
+ *
+ * sql.js 시절과 달리 쓰기가 페이지 단위로 OPFS에 직접 반영된다 (전체 export 없음)
+ * — 대용량 히스토리에서의 쓰기 증폭 문제(M3의 발단)가 여기서 해소된다.
+ * 기존 IndexedDB 저장본(kv 'nais3.db')은 최초 부팅 시 1회 이식한다.
  */
 
-const DB_KEY = 'nais3.db'
-const PERSIST_DEBOUNCE_MS = 400
+const DB_FILE = '/nais3.db'
+const LEGACY_IDB_KEY = 'nais3.db'
+const LEGACY_BACKUP_KEY = 'nais3.db.migrated-backup'
 
-let raw: SqlJsDatabase | null = null
+// 패키지 타입이 버전별로 유동적이라 사용 표면만 구조 타입으로 고정
+interface SqliteStmt {
+  bind(values: unknown[]): SqliteStmt
+  step(): boolean
+  get(target: Record<string, unknown>): Record<string, unknown>
+  finalize(): unknown
+}
+interface SqliteDb {
+  exec(sql: string): unknown
+  prepare(sql: string): SqliteStmt
+  changes(): number
+  selectValue(sql: string): unknown
+  close(): void
+}
+
+let raw: SqliteDb | null = null
 let adapter: WebDatabase | null = null
 
-let dirty = false
-let persistTimer: ReturnType<typeof setTimeout> | undefined
-
-function markDirty(): void {
-  dirty = true
-  clearTimeout(persistTimer)
-  persistTimer = setTimeout(() => void persistNow(), PERSIST_DEBOUNCE_MS)
-}
-
-export async function persistNow(): Promise<void> {
-  if (!dirty || !raw) return
-  dirty = false
-  await idbPut('kv', DB_KEY, raw.export())
-}
+/** dev 전용 — 마이그레이션 리허설용 저수준 컨트롤 (initWebDb에서 DEV일 때만 채워짐) */
+export const __devDbControls: {
+  exportDb?: () => Promise<Uint8Array>
+  wipeDb?: () => Promise<void>
+} = {}
 
 type SqlValue = number | string | Uint8Array | null
 
@@ -58,45 +68,50 @@ function convertRow(row: Record<string, unknown>): Record<string, unknown> {
 
 class WebStatement {
   constructor(
-    private readonly db: SqlJsDatabase,
+    private readonly db: SqliteDb,
     private readonly sql: string
   ) {}
 
   run(...params: unknown[]): { changes: number; lastInsertRowid: number } {
-    this.db.run(this.sql, normalizeParams(params))
-    const changes = this.db.getRowsModified()
-    const res = this.db.exec('SELECT last_insert_rowid()')
-    const lastInsertRowid = Number(res[0]?.values[0]?.[0] ?? 0)
-    markDirty()
-    return { changes, lastInsertRowid }
+    const stmt = this.db.prepare(this.sql)
+    try {
+      if (params.length) stmt.bind(normalizeParams(params))
+      stmt.step()
+    } finally {
+      stmt.finalize()
+    }
+    return {
+      changes: this.db.changes(),
+      lastInsertRowid: Number(this.db.selectValue('SELECT last_insert_rowid()'))
+    }
   }
 
   get(...params: unknown[]): unknown {
     const stmt = this.db.prepare(this.sql)
     try {
-      stmt.bind(normalizeParams(params))
+      if (params.length) stmt.bind(normalizeParams(params))
       if (!stmt.step()) return undefined
-      return convertRow(stmt.getAsObject())
+      return convertRow(stmt.get({}))
     } finally {
-      stmt.free()
+      stmt.finalize()
     }
   }
 
   all(...params: unknown[]): unknown[] {
     const stmt = this.db.prepare(this.sql)
     try {
-      stmt.bind(normalizeParams(params))
+      if (params.length) stmt.bind(normalizeParams(params))
       const rows: unknown[] = []
-      while (stmt.step()) rows.push(convertRow(stmt.getAsObject()))
+      while (stmt.step()) rows.push(convertRow(stmt.get({})))
       return rows
     } finally {
-      stmt.free()
+      stmt.finalize()
     }
   }
 }
 
 class WebDatabase {
-  constructor(private readonly db: SqlJsDatabase) {}
+  constructor(private readonly db: SqliteDb) {}
 
   prepare(sql: string): WebStatement {
     return new WebStatement(this.db, sql)
@@ -104,14 +119,16 @@ class WebDatabase {
 
   exec(sql: string): this {
     this.db.exec(sql)
-    markDirty()
     return this
   }
 
   pragma(src: string, opts?: { simple?: boolean }): unknown {
-    const res = this.db.exec(`PRAGMA ${src}`)
-    if (opts?.simple) return res[0]?.values[0]?.[0]
-    return res
+    if (src.includes('=')) {
+      this.db.exec(`PRAGMA ${src}`)
+      return undefined
+    }
+    const value = this.db.selectValue(`PRAGMA ${src}`)
+    return opts?.simple ? value : [{ [src]: value }]
   }
 
   transaction<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
@@ -120,7 +137,6 @@ class WebDatabase {
       try {
         const result = fn(...args)
         this.db.exec('COMMIT')
-        markDirty()
         return result
       } catch (e) {
         this.db.exec('ROLLBACK')
@@ -141,7 +157,7 @@ export function getDb(): BetterSqlite3.Database {
 }
 
 export function getDbPath(): string {
-  return 'browser://indexeddb/nais3.db'
+  return 'browser://opfs/nais3.db'
 }
 
 export function closeDb(): void {
@@ -150,11 +166,25 @@ export function closeDb(): void {
   raw = null
 }
 
-/** 웹 부트스트랩 전용 — sql.js 로드 → 저장본 복원 → 마이그레이션 (데스크톱 initDb와 동일 규칙) */
+/** 워커 부트스트랩 전용 — VFS 설치 → (필요 시) 구 IndexedDB 저장본 이식 → 마이그레이션 */
 export async function initWebDb(): Promise<{ version: number; path: string }> {
-  const SQL = await initSqlJs({ locateFile: () => sqlWasmUrl })
-  const saved = await idbGet<Uint8Array>('kv', DB_KEY)
-  raw = saved ? new SQL.Database(saved) : new SQL.Database()
+  const sqlite3 = await sqlite3InitModule()
+  const poolUtil = await sqlite3.installOpfsSAHPoolVfs({})
+
+  // 구버전(sql.js + IndexedDB export) 사용자 데이터 1회 이식.
+  // 원본은 즉시 지우지 않고 백업 키로 이름만 바꿔 보존한다 (롤백 여지).
+  const existing: string[] = poolUtil.getFileNames()
+  if (!existing.includes(DB_FILE)) {
+    const legacy = await idbGet<Uint8Array>('kv', LEGACY_IDB_KEY)
+    if (legacy && legacy.byteLength > 0) {
+      poolUtil.importDb(DB_FILE, legacy)
+      await idbPut('kv', LEGACY_BACKUP_KEY, legacy)
+      const { idbDelete } = await import('../idb')
+      await idbDelete('kv', LEGACY_IDB_KEY)
+    }
+  }
+
+  raw = new poolUtil.OpfsSAHPoolDb(DB_FILE) as unknown as SqliteDb
   adapter = new WebDatabase(raw)
 
   adapter.exec('PRAGMA foreign_keys = ON')
@@ -164,7 +194,13 @@ export async function initWebDb(): Promise<{ version: number; path: string }> {
 
   if (current < target) {
     // 마이그레이션 전 스냅샷 백업 (데스크톱의 pre-migration-vN.db와 동일 취지)
-    if (current > 0 && saved) await idbPut('kv', `backup-pre-v${current}`, saved)
+    if (current > 0) {
+      try {
+        await idbPut('kv', `backup-pre-v${current}`, await poolUtil.exportFile(DB_FILE))
+      } catch {
+        // 백업 실패가 마이그레이션을 막지는 않는다
+      }
+    }
     for (let v = current; v < target; v++) {
       const migrate = adapter.transaction(() => {
         migrations[v](getDb())
@@ -172,7 +208,6 @@ export async function initWebDb(): Promise<{ version: number; path: string }> {
       })
       migrate()
     }
-    await persistNow()
   } else if (current > target) {
     throw new Error(
       `DB version ${current} is newer than app supports (${target}). ` +
@@ -180,11 +215,13 @@ export async function initWebDb(): Promise<{ version: number; path: string }> {
     )
   }
 
-  // 탭 전환/닫기 시 미저장분 flush (디바운스 창 유실 방지)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') void persistNow()
-  })
-  window.addEventListener('pagehide', () => void persistNow())
+  if (import.meta.env.DEV) {
+    __devDbControls.exportDb = async () => (await poolUtil.exportFile(DB_FILE)) as Uint8Array
+    __devDbControls.wipeDb = async () => {
+      closeDb()
+      await poolUtil.wipeFiles()
+    }
+  }
 
   return { version: target, path: getDbPath() }
 }

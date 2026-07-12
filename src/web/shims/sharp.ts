@@ -38,10 +38,19 @@ class WebSharpChain {
           })()
     const bmp = await createImageBitmap(new Blob([u8]))
     try {
-      const canvas = document.createElement('canvas')
-      canvas.width = bmp.width
-      canvas.height = bmp.height
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      // 메인/워커 겸용 (P5부터 메타데이터 채널은 워커에서 돎)
+      let canvas: HTMLCanvasElement | OffscreenCanvas
+      if (typeof document === 'undefined') {
+        canvas = new OffscreenCanvas(bmp.width, bmp.height)
+      } else {
+        canvas = document.createElement('canvas')
+        canvas.width = bmp.width
+        canvas.height = bmp.height
+      }
+      const ctx = canvas.getContext('2d', { willReadFrequently: true }) as
+        | CanvasRenderingContext2D
+        | OffscreenCanvasRenderingContext2D
+        | null
       if (!ctx) throw new Error('2D 컨텍스트 생성 실패')
       ctx.drawImage(bmp, 0, 0)
       const image = ctx.getImageData(0, 0, bmp.width, bmp.height)

@@ -145,6 +145,16 @@ export default defineConfig({
       (JSON.parse(readFileSync(r('package.json'), 'utf-8')) as { version: string }).version
     )
   },
+  optimizeDeps: {
+    // sqlite-wasm은 자체 워커/wasm 로딩을 하므로 사전 번들에서 제외 (공식 권장)
+    exclude: ['@sqlite.org/sqlite-wasm']
+  },
+  worker: {
+    format: 'es', // 워커 안에서 dynamic import(jszip 등) 사용
+    // 주의: 워커는 별도 롤업 빌드라 config.plugins가 적용되지 않는다 —
+    // src/main/db 리다이렉트가 빠지면 진짜 better-sqlite3가 번들돼 부팅이 죽는다 (P5에서 실제 발생)
+    plugins: () => [redirectMainDb()]
+  },
   server: {
     host: true // 같은 네트워크의 실기기(폰) 테스트용
   },

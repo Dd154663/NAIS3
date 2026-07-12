@@ -1,7 +1,11 @@
 /**
  * Canvas 기반 이미지 유틸 — 데스크톱의 sharp 사용처(썸네일·리사이즈·마스크 정규화·크기 조회)를
  * 브라우저 표준 API로 대체한다.
+ * 메인/워커 겸용: document가 없으면 OffscreenCanvas 경로 (생성 파이프라인이 워커에서 돎).
  */
+
+type AnyCanvas = HTMLCanvasElement | OffscreenCanvas
+type AnyCtx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
 
 function toBlobInput(bytes: Uint8Array | Buffer): Blob {
   // Buffer의 backing ArrayBuffer는 오프셋이 있을 수 있어 슬라이스로 정확한 범위만
@@ -13,7 +17,10 @@ async function decode(bytes: Uint8Array | Buffer): Promise<ImageBitmap> {
   return createImageBitmap(toBlobInput(bytes))
 }
 
-function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
+function toBlob(canvas: AnyCanvas, type: string, quality?: number): Promise<Blob> {
+  if ('convertToBlob' in canvas) {
+    return canvas.convertToBlob({ type, quality })
+  }
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('canvas.toBlob 실패'))),
@@ -23,7 +30,13 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Prom
   })
 }
 
-function makeCanvas(width: number, height: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+function makeCanvas(width: number, height: number): [AnyCanvas, AnyCtx] {
+  if (typeof document === 'undefined') {
+    const canvas = new OffscreenCanvas(width, height)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('2D 컨텍스트 생성 실패 (OffscreenCanvas)')
+    return [canvas, ctx as OffscreenCanvasRenderingContext2D]
+  }
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -172,37 +185,3 @@ export async function normalizeInpaintMask(
   return png.toString('base64')
 }
 
-/** base64/bytes → 다운로드 트리거 (images:saveAs·백업 내보내기) */
-export function downloadBytes(bytes: Uint8Array | Buffer | Blob, filename: string, mime = 'application/octet-stream'): void {
-  const blob = bytes instanceof Blob ? bytes : new Blob([toBlobInput(bytes)], { type: mime })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 30_000)
-}
-
-/** 파일 선택 (다이얼로그 대체). accept 예: 'image/*', '.json' */
-export function pickFiles(accept: string, multiple: boolean): Promise<File[]> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = accept
-    input.multiple = multiple
-    input.style.display = 'none'
-    document.body.appendChild(input)
-    input.onchange = () => {
-      resolve(Array.from(input.files ?? []))
-      input.remove()
-    }
-    // 취소 감지 (모던 브라우저는 cancel 이벤트 지원)
-    input.oncancel = () => {
-      resolve([])
-      input.remove()
-    }
-    input.click()
-  })
-}
