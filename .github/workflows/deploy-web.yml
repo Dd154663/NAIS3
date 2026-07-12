@@ -36,6 +36,9 @@ jobs:
       - run: npm run build:web
         env:
           WEB_BASE: /${{ github.event.repository.name }}/
+          # Google Drive OAuth 클라이언트 ID (P6). 저장소 변수 미설정이면 빈 값 →
+          # Drive 기능은 런타임에서 스스로 숨는다(isDriveConfigured). 빌드는 실패하지 않음.
+          VITE_GDRIVE_CLIENT_ID: ${{ vars.GDRIVE_CLIENT_ID }}
 
       - uses: actions/configure-pages@v5
         with:

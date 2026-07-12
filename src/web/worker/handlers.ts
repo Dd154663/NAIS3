@@ -118,6 +118,14 @@ import {
   saveGeneratedImage,
   setImageFavorite
 } from '../backend/images/storage'
+import {
+  driveDelete,
+  driveDownload,
+  driveUpload,
+  hasDriveToken,
+  setDriveToken
+} from '../backend/gdrive'
+import { gdriveQueueAll } from '../backend/gdrive-store'
 
 /**
  * 워커 채널 핸들러 — Electron 메인 프로세스의 ipc.ts에 대응 (P5에서 워커로 이동).
@@ -622,12 +630,39 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
     }
   })
 
+  // ── Google Drive (P6) — 메인 GIS가 토큰 발급·주입, 워커가 REST 호출 ──
+  handleRaw('_gdrive:setToken', (req) => {
+    const { token, expiresAt } = req as { token: string; expiresAt: number }
+    setDriveToken(token, expiresAt)
+    setSetting('web_gdrive_enabled', '1')
+    return { hasToken: hasDriveToken() }
+  })
+  handleRaw('_gdrive:clearToken', () => {
+    setDriveToken(null, 0)
+    setSetting('web_gdrive_enabled', '0')
+  })
+  handleRaw('_gdrive:status', async () => ({
+    enabled: getSetting('web_gdrive_enabled') === '1',
+    hasToken: hasDriveToken(),
+    queueLength: (await gdriveQueueAll()).length
+  }))
+
   // ── dev 전용 (검증 프로브) ─────────────────────────────────
   if (import.meta.env.DEV) {
     handleRaw('_dev:sql', (req) => {
       const { sql, params, mode } = req as { sql: string; params?: unknown[]; mode?: 'all' | 'run' }
       const stmt = getDb().prepare(sql)
       return mode === 'run' ? stmt.run(...(params ?? [])) : stmt.all(...(params ?? []))
+    })
+    // Drive 클라이언트 왕복 검증: 업로드→다운로드(내용 대조)→삭제 (실토큰 필요)
+    handleRaw('_dev:gdriveSelftest', async () => {
+      const path = 'web://images/_selftest/probe.txt'
+      const text = 'nais3-drive-selftest'
+      const uploadId = await driveUpload(path, new TextEncoder().encode(text), 'text/plain')
+      const got = await driveDownload(path)
+      const contentMatch = got ? new TextDecoder().decode(got) === text : false
+      await driveDelete(path) // 실패 시 throw — 도달하면 원격 삭제 성공
+      return { uploadId, contentMatch, deleted: true }
     })
     handleRaw('_dev:exportDb', async () => {
       const { __devDbControls } = await import('../backend/db')

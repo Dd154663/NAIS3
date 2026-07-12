@@ -2,6 +2,13 @@ import type { NaisApi } from '../preload/index'
 import { broadcast } from './events'
 import { initWorkerRpc, invoke, on, rpcInvoke, webImageUrl } from './backend/ipc'
 import { registerMainHandlers } from './main-handlers'
+import {
+  connectDrive,
+  disconnectDrive,
+  gdriveStatus,
+  initGdriveBridge,
+  isDriveConfigured
+} from './gdrive-controller'
 
 /**
  * 웹 부트스트랩 (P5) — Electron의 preload 역할.
@@ -15,6 +22,9 @@ export async function start(): Promise<void> {
   const ready = await initWorkerRpc(worker)
 
   registerMainHandlers()
+
+  // Drive 토큰 만료 → 무팝업 재발급 브릿지 (클라이언트 ID 주입된 빌드에서만)
+  if (isDriveConfigured()) initGdriveBridge()
 
   // 채널 선언표 ↔ 실제 등록 대조 (가드레일 G1 — DEV 전용, 프로덕션 번들에선 제거)
   if (import.meta.env.DEV) {
@@ -70,7 +80,14 @@ export async function start(): Promise<void> {
       idbKeys,
       exportAll: async () => JSON.parse(await rpcInvoke<string>('_backup:exportJson')),
       importAll: (data: unknown) =>
-        rpcInvoke('_backup:importJson', { text: JSON.stringify(data) })
+        rpcInvoke('_backup:importJson', { text: JSON.stringify(data) }),
+      gdrive: {
+        configured: isDriveConfigured(),
+        connect: () => connectDrive(),
+        disconnect: () => disconnectDrive(),
+        status: () => gdriveStatus(),
+        selftest: () => rpcInvoke('_dev:gdriveSelftest')
+      }
     }
   }
 

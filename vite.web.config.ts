@@ -114,6 +114,9 @@ function swPrecache(): Plugin {
 
 export default defineConfig({
   root: r('src/web'),
+  // root가 src/web이라 기본 envDir도 거기가 된다 — .env.local은 프로젝트 루트에 두므로
+  // envDir를 루트로 되돌린다 (VITE_GDRIVE_CLIENT_ID 등, P6). CI는 process env로 주입.
+  envDir: r('.'),
   // GitHub Pages 등 하위 경로 배포용 (예: /NAIS3/). 미지정 시 루트 — dev와 로컬 preview는 '/'
   base: process.env.WEB_BASE ?? '/',
   publicDir: r('src/web/public'),
