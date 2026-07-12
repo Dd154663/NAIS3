@@ -11,9 +11,17 @@ import { registerMainHandlers } from './main-handlers'
  */
 export async function start(): Promise<void> {
   const worker = new Worker(new URL('./worker/index.ts', import.meta.url), { type: 'module' })
-  await initWorkerRpc(worker) // ready 핸드셰이크 (DB 초기화·마이그레이션 완료 보장)
+  // ready 핸드셰이크 (DB 초기화·마이그레이션 완료 보장)
+  const ready = await initWorkerRpc(worker)
 
   registerMainHandlers()
+
+  // 채널 선언표 ↔ 실제 등록 대조 (가드레일 G1 — DEV 전용, 프로덕션 번들에선 제거)
+  if (import.meta.env.DEV) {
+    const { verifyChannelCoverage } = await import('./channel-coverage')
+    const { hasHandler } = await import('./bus')
+    verifyChannelCoverage(ready.channels, hasHandler)
+  }
 
   // 웹검색 모드는 Electron <webview> 전용이라 웹에선 동작하지 않는다 —
   // "표시할 탭" 설정이 미설정일 때만 기본 숨김 (사용자가 설정에서 다시 켤 수 있음)

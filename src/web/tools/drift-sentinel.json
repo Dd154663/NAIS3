@@ -1,0 +1,49 @@
+{
+  "$comment": "그림자 파일 드리프트 센티널 — drift-check.mjs가 검증. 원작(src/main) 파일이 바뀌면 mirror에 적힌 웹 구현을 검토한 뒤 `npm run check:web-drift:update`로 해시를 갱신한다. 해시는 CRLF→LF 정규화 후 sha256.",
+  "watch": {
+    "src/main/ipc.ts": {
+      "hash": "60084538705392ddb96f8f8896de6438f78b31dc043e162f29748c6789d03534",
+      "mirror": [
+        "src/web/worker/handlers.ts",
+        "src/web/main-handlers.ts"
+      ]
+    },
+    "src/main/index.ts": {
+      "hash": "b5c48ab19ec7abdffe6dc7c6bc22dc9489528696c82a176ad55ad3b4d4e80ed0",
+      "mirror": [
+        "src/web/bootstrap.ts",
+        "src/web/backend/pipeline.ts"
+      ]
+    },
+    "src/main/images/storage.ts": {
+      "hash": "cb8791e84275a6af0be4c55e0d9d34836dc60056a7d74aea978e2fb7d2d88d6f",
+      "mirror": [
+        "src/web/backend/images/storage.ts"
+      ]
+    },
+    "src/main/db/settings.ts": {
+      "hash": "70a76421f0fefb4879e0ba324922885aeb661bd2ed07b2840b3328fb17776b4d",
+      "mirror": [
+        "src/web/backend/db/settings.ts"
+      ]
+    },
+    "src/main/db/index.ts": {
+      "hash": "a36d2602bd42d312b66b9944f9b6d9e9e308b85262bc32d3b50d905b8dfb0a7f",
+      "mirror": [
+        "src/web/backend/db/index.ts"
+      ]
+    },
+    "src/main/refs/prepare.ts": {
+      "hash": "952593aa5be3f5147aec6abc01395dd02739e6e43fba31347395e346bee7091c",
+      "mirror": [
+        "src/web/backend/refs.ts"
+      ]
+    },
+    "src/main/backup/repo.ts": {
+      "hash": "0cdde90fcf2b160b991d77ff410d6bb6bfc8a8b3751f8dd907404ce5aa30a7c7",
+      "mirror": [
+        "src/web/backend/backup.ts"
+      ]
+    }
+  }
+}

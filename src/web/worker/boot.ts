@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { GenerationQueue } from '@main/queue/generation-queue'
-import { dispatch, setBroadcastSink } from '../bus'
+import { dispatch, registeredChannels, setBroadcastSink } from '../bus'
 import { collectTransferables, type MainToWorker, type WorkerToMain } from '../rpc'
 import { initWebDb } from '../backend/db'
 import { getSetting } from '../backend/db/settings'
@@ -45,7 +45,7 @@ async function boot(): Promise<void> {
 
   registerWorkerHandlers({ dbVersion, queue })
 
-  post({ kind: 'ready', dbVersion })
+  post({ kind: 'ready', dbVersion, channels: registeredChannels() })
 }
 
 const bootPromise = boot()

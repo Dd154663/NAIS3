@@ -26,7 +26,7 @@ export function webImageUrl(filePath: string): string {
   )
 }
 
-export function initWorkerRpc(w: Worker): Promise<{ dbVersion: number }> {
+export function initWorkerRpc(w: Worker): Promise<{ dbVersion: number; channels: string[] }> {
   worker = w
   return new Promise((resolveReady, rejectReady) => {
     w.onmessage = (event: MessageEvent<WorkerToMain>) => {
@@ -49,7 +49,7 @@ export function initWorkerRpc(w: Worker): Promise<{ dbVersion: number }> {
           emitLocal(msg.channel, msg.payload)
         }
       } else if (msg.kind === 'ready') {
-        resolveReady({ dbVersion: msg.dbVersion })
+        resolveReady({ dbVersion: msg.dbVersion, channels: msg.channels })
       }
     }
     w.onerror = (e) => rejectReady(new Error(`워커 오류: ${e.message}`))

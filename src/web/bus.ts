@@ -19,6 +19,11 @@ export function hasHandler(channel: string): boolean {
   return handlers.has(channel)
 }
 
+/** 등록된 채널 목록 — 채널 커버리지 대조용 (channel-coverage.ts, DEV) */
+export function registeredChannels(): string[] {
+  return [...handlers.keys()]
+}
+
 export function dispatch(channel: string, req: unknown): Promise<unknown> {
   const h = handlers.get(channel)
   if (!h) return Promise.reject(new Error(`[web] 미구현 채널: ${channel}`))

@@ -25,7 +25,9 @@
     "dev:web": "vite --config vite.web.config.ts",
     "build:web": "npm run typecheck:webapp && vite build --config vite.web.config.ts",
     "preview:web": "vite preview --config vite.web.config.ts",
-    "typecheck:webapp": "tsc --noEmit -p tsconfig.webapp.json --composite false"
+    "typecheck:webapp": "tsc --noEmit -p tsconfig.webapp.json --composite false",
+    "check:web-drift": "node src/web/tools/drift-check.mjs",
+    "check:web-drift:update": "node src/web/tools/drift-check.mjs --update"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",

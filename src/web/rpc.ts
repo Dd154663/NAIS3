@@ -29,6 +29,8 @@ export interface RpcEvent {
 export interface RpcReady {
   kind: 'ready'
   dbVersion: number
+  /** 워커에 등록된 채널 목록 — 채널 커버리지 대조용 (channel-coverage.ts, DEV) */
+  channels: string[]
 }
 
 export type WorkerToMain = RpcResult | RpcEvent | RpcReady
