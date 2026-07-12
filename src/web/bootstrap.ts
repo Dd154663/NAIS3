@@ -6,7 +6,6 @@ import {
   connectDrive,
   disconnectDrive,
   gdriveStatus,
-  initGdriveBridge,
   isDriveConfigured
 } from './gdrive-controller'
 
@@ -23,8 +22,9 @@ export async function start(): Promise<void> {
 
   registerMainHandlers()
 
-  // Drive 토큰 만료 → 무팝업 재발급 브릿지 (클라이언트 ID 주입된 빌드에서만)
-  if (isDriveConfigured()) initGdriveBridge()
+  // Drive 토큰 발급은 사용자 제스처(패널 연결/재연결 버튼)로만 — GIS 팝업은 제스처 없이 차단되므로
+  // 부팅 자동 재연결은 하지 않는다. 워커가 이전 세션 설정으로 프로바이더를 선활성해 큐를 유지하고,
+  // 패널(P6-5)이 "재연결 필요"를 표시한다.
 
   // 채널 선언표 ↔ 실제 등록 대조 (가드레일 G1 — DEV 전용, 프로덕션 번들에선 제거)
   if (import.meta.env.DEV) {
@@ -86,7 +86,8 @@ export async function start(): Promise<void> {
         connect: () => connectDrive(),
         disconnect: () => disconnectDrive(),
         status: () => gdriveStatus(),
-        selftest: () => rpcInvoke('_dev:gdriveSelftest')
+        selftest: () => rpcInvoke('_dev:gdriveSelftest'),
+        providerTest: () => rpcInvoke('_dev:driveProviderTest')
       }
     }
   }

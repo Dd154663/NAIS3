@@ -125,7 +125,9 @@ import {
   hasDriveToken,
   setDriveToken
 } from '../backend/gdrive'
-import { gdriveQueueAll } from '../backend/gdrive-store'
+import { gdriveIndexGet, gdriveQueueAll } from '../backend/gdrive-store'
+import { idbStorageProvider, setStorageProvider } from '../backend/storage-provider'
+import { drainDriveQueue, driveStorageProvider } from '../backend/drive-provider'
 
 /**
  * 워커 채널 핸들러 — Electron 메인 프로세스의 ipc.ts에 대응 (P5에서 워커로 이동).
@@ -631,21 +633,31 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
   })
 
   // ── Google Drive (P6) — 메인 GIS가 토큰 발급·주입, 워커가 REST 호출 ──
-  handleRaw('_gdrive:setToken', (req) => {
+  handleRaw('_gdrive:setToken', async (req) => {
     const { token, expiresAt } = req as { token: string; expiresAt: number }
     setDriveToken(token, expiresAt)
     setSetting('web_gdrive_enabled', '1')
-    return { hasToken: hasDriveToken() }
+    setStorageProvider(driveStorageProvider) // 이후 저장은 Drive 정책 경유
+    const drained = await drainDriveQueue() // 밀렸던 업로드/삭제 재시도
+    return { hasToken: hasDriveToken(), drained }
   })
   handleRaw('_gdrive:clearToken', () => {
     setDriveToken(null, 0)
     setSetting('web_gdrive_enabled', '0')
+    setStorageProvider(idbStorageProvider) // 로컬 전용 복귀
   })
   handleRaw('_gdrive:status', async () => ({
     enabled: getSetting('web_gdrive_enabled') === '1',
     hasToken: hasDriveToken(),
     queueLength: (await gdriveQueueAll()).length
   }))
+  // 이전 세션에서 Drive가 켜져 있었으면 프로바이더 미리 활성 (토큰은 메인이 곧 무팝업 재발급).
+  // 토큰 도착 전 생성분도 로컬 저장+대기열로 안전하게 흡수된다.
+  if (getSetting('web_gdrive_enabled') === '1') setStorageProvider(driveStorageProvider)
+  // 오프라인→온라인 복귀 시 대기열 자동 배수
+  globalThis.addEventListener('online', () => {
+    void drainDriveQueue()
+  })
 
   // ── dev 전용 (검증 프로브) ─────────────────────────────────
   if (import.meta.env.DEV) {
@@ -663,6 +675,23 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
       const contentMatch = got ? new TextDecoder().decode(got) === text : false
       await driveDelete(path) // 실패 시 throw — 도달하면 원격 삭제 성공
       return { uploadId, contentMatch, deleted: true }
+    })
+    // 프로바이더 정책 검증: put→Drive확정, 로컬 blob 강제 축출→get이 Drive에서 복원, delete
+    handleRaw('_dev:driveProviderTest', async () => {
+      const path = 'web://images/_selftest/provtest.txt'
+      const text = 'provider-test'
+      await driveStorageProvider.put(path, new TextEncoder().encode(text), 'text/plain')
+      // put은 업로드를 백그라운드로 돌리므로 큐가 빌 때까지 대기 (최대 ~5s)
+      for (let i = 0; i < 50 && (await gdriveQueueAll()).length > 0; i++) {
+        await new Promise((r) => setTimeout(r, 100))
+      }
+      const onDrive = Boolean(await gdriveIndexGet(path))
+      await idbStorageProvider.delete(path) // 로컬 축출 시뮬레이션
+      const restoredBytes = await driveStorageProvider.get(path) // Drive에서 복원돼야 함
+      const restored = restoredBytes ? new TextDecoder().decode(restoredBytes) === text : false
+      await driveStorageProvider.delete(path)
+      const gone = (await driveStorageProvider.get(path)) === null
+      return { onDrive, restored, gone }
     })
     handleRaw('_dev:exportDb', async () => {
       const { __devDbControls } = await import('../backend/db')

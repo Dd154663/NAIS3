@@ -8,11 +8,13 @@
  *
  * - index: file_path → Drive fileId (원본이 Drive 어디에 있는지)
  * - queue: file_path → { op, mime } 업로드/삭제 재시도 대기열 (오프라인·토큰만료 흡수)
+ * - meta: 로컬 LRU 캐시 순서 등 부가 상태 (key 'lru' → string[])
  */
 
 const DB_NAME = 'nais3-gdrive'
-const DB_VERSION = 1
-type Store = 'index' | 'queue'
+const DB_VERSION = 2
+type Store = 'index' | 'queue' | 'meta'
+const STORES: Store[] = ['index', 'queue', 'meta']
 
 export interface QueueEntry {
   path: string
@@ -28,7 +30,7 @@ function open(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
-      for (const store of ['index', 'queue'] as const) {
+      for (const store of STORES) {
         if (!db.objectStoreNames.contains(store)) db.createObjectStore(store)
       }
     }
@@ -78,3 +80,8 @@ export async function gdriveQueueAll(): Promise<QueueEntry[]> {
     QueueEntry[]
   >)
 }
+
+// ── 로컬 LRU 캐시 순서 (오래된 → 최신) ──────────────────────
+export const gdriveLruGet = async (): Promise<string[]> =>
+  (await get<string[]>('meta', 'lru')) ?? []
+export const gdriveLruSet = (list: string[]): Promise<void> => put('meta', 'lru', list)
