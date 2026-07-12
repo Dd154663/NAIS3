@@ -58,10 +58,32 @@ import {
   updateRefImage
 } from '@main/refs/repo'
 import { addRefImagesWeb, deleteRefImageWeb } from './refs'
+import {
+  deleteImagesWeb,
+  importBase64Web,
+  importPathsWeb,
+  importViaPickerWeb
+} from './library'
+import {
+  bulkClearImagesWeb,
+  bulkExportZipWeb,
+  deleteNonFavoritesWeb,
+  exportScenesJsonWeb,
+  exportZipWeb,
+  importScenesJsonWeb
+} from './scenes'
+import {
+  createStack,
+  deleteStack,
+  renameStack,
+  reorderImages as reorderLibraryImages,
+  setStack
+} from '@main/library/repo'
 import { listLibrary } from '@main/library/repo'
 import {
   adjustReserveAll,
   bulkClearFavorites,
+  bulkDelete,
   bulkMove,
   bulkSetResolution,
   createPreset,
@@ -540,7 +562,33 @@ export function registerWebHandlers(ctx: { dbVersion: number; queue: GenerationQ
     deleteRefFolder('charref', id)
   })
 
+  // ── 라이브러리 (list/stack류는 repo 재사용, 가져오기/삭제만 웹 구현) ──
   handle('library:list', ({ stackId, limit, offset }) => listLibrary(stackId, limit, offset))
+  handle('library:import', async ({ stackId }) => ({
+    count: await importViaPickerWeb(stackId ?? null)
+  }))
+  handle('library:importPaths', async ({ filePaths, stackId }) => ({
+    count: await importPathsWeb(filePaths, stackId ?? null)
+  }))
+  handle('library:importImages', async ({ images, stackId }) => ({
+    count: await importBase64Web(images, stackId ?? null)
+  }))
+  handle('library:delete', async ({ ids }) => {
+    await deleteImagesWeb(ids)
+  })
+  handle('library:reorder', ({ ids }) => {
+    reorderLibraryImages(ids)
+  })
+  handle('library:stackCreate', ({ name, imageIds }) => ({ id: createStack(name, imageIds) }))
+  handle('library:stackRename', ({ id, name }) => {
+    renameStack(id, name)
+  })
+  handle('library:stackDelete', ({ id }) => {
+    deleteStack(id)
+  })
+  handle('library:stackSet', ({ imageIds, stackId }) => {
+    setStack(imageIds, stackId)
+  })
 
   // ── 씬 (repo 재사용 — 파일 I/O 없는 채널만) ────────────────
   handle('scenePresets:list', () => ({ items: listPresets() }))
@@ -579,6 +627,21 @@ export function registerWebHandlers(ctx: { dbVersion: number; queue: GenerationQ
   handle('scenes:bulkMove', ({ ids, presetId }) => {
     bulkMove(ids, presetId)
   })
+  handle('scenes:bulkDelete', ({ ids }) => {
+    bulkDelete(ids)
+  })
+  handle('scenes:bulkClearImages', async ({ ids }) => ({
+    deleted: await bulkClearImagesWeb(ids)
+  }))
+  handle('scenes:deleteNonFavorites', async ({ sceneId }) => ({
+    deleted: await deleteNonFavoritesWeb(sceneId)
+  }))
+  handle('scenes:exportJson', ({ presetId }) => ({ saved: exportScenesJsonWeb(presetId) }))
+  handle('scenes:importJson', async ({ presetId }) => ({
+    count: await importScenesJsonWeb(presetId)
+  }))
+  handle('scenes:exportZip', async ({ presetId }) => ({ count: await exportZipWeb(presetId) }))
+  handle('scenes:bulkExportZip', async ({ ids }) => ({ count: await bulkExportZipWeb(ids) }))
   handle('scenes:bulkSetResolution', ({ ids, width, height }) => {
     bulkSetResolution(ids, width, height)
   })
