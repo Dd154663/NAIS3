@@ -41,5 +41,12 @@ export async function start(): Promise<void> {
     }
   }
 
+  // dev 전용 디버그 표면 — 채널 검증 시 테스트 데이터 주입용 (프로덕션 번들에선 제거됨)
+  if (import.meta.env.DEV) {
+    const { getDb } = await import('./backend/db')
+    const { idbGet, idbPut, idbKeys } = await import('./backend/idb')
+    ;(window as unknown as Record<string, unknown>).__naisDev = { getDb, idbGet, idbPut, idbKeys }
+  }
+
   await import('@renderer/main')
 }

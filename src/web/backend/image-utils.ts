@@ -62,6 +62,47 @@ export async function makeThumbnail(bytes: Uint8Array | Buffer): Promise<Buffer>
   }
 }
 
+/** 캐릭레퍼 전처리용 — sharp resize(fit:contain, 배경 패딩) + png 대응 */
+export async function resizeContainPng(
+  bytes: Uint8Array | Buffer,
+  width: number,
+  height: number,
+  background = '#000000'
+): Promise<Buffer> {
+  const bmp = await decode(bytes)
+  try {
+    const [canvas, ctx] = makeCanvas(width, height)
+    ctx.fillStyle = background
+    ctx.fillRect(0, 0, width, height)
+    const scale = Math.min(width / bmp.width, height / bmp.height)
+    const w = Math.round(bmp.width * scale)
+    const h = Math.round(bmp.height * scale)
+    ctx.drawImage(bmp, Math.floor((width - w) / 2), Math.floor((height - h) / 2), w, h)
+    return await blobToBuffer(await toBlob(canvas, 'image/png'))
+  } finally {
+    bmp.close()
+  }
+}
+
+/** refs 카드 썸네일 — sharp resize(fit:cover) + webp 대응 (데스크톱: 192×192 q82) */
+export async function makeCoverThumbnail(
+  bytes: Uint8Array | Buffer,
+  size = 192,
+  quality = 0.82
+): Promise<Buffer> {
+  const bmp = await decode(bytes)
+  try {
+    const [canvas, ctx] = makeCanvas(size, size)
+    const scale = Math.max(size / bmp.width, size / bmp.height)
+    const w = bmp.width * scale
+    const h = bmp.height * scale
+    ctx.drawImage(bmp, (size - w) / 2, (size - h) / 2, w, h)
+    return await blobToBuffer(await toBlob(canvas, 'image/webp', quality))
+  } finally {
+    bmp.close()
+  }
+}
+
 /** i2i 소스 리사이즈 — sharp resize(fit:fill) + png 대응 */
 export async function resizeFillPng(
   bytes: Uint8Array | Buffer,

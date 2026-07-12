@@ -9,13 +9,12 @@ import { getNaiToken, getSetting } from './db/settings'
 import { normalizeInpaintMask, resizeFillPng } from './image-utils'
 import { saveEphemeralImage, saveGeneratedImage } from './images/storage'
 import { broadcast } from './ipc'
+import { prepareCharRefs, prepareVibes } from './refs'
 
 /**
  * 웹 생성 파이프라인 — src/main/index.ts의 GenerationQueue 콜백 이식.
- * 큐 → 조각/와일드카드 치환 → 스트리밍 생성 → 저장. 치환·저장 순서와 규칙은
- * 데스크톱과 동일하게 유지한다 (동작 차이는 곧 시드/메타데이터 재현성 버그).
- *
- * 1차 포팅 미지원: 바이브 트랜스퍼/캐릭터 레퍼런스 준비 단계 (라이브러리 포팅과 함께 후속).
+ * 큐 → 조각/와일드카드 치환 → 바이브/캐릭레퍼 준비 → 스트리밍 생성 → 저장.
+ * 치환·저장 순서와 규칙은 데스크톱과 동일하게 유지한다 (동작 차이는 곧 시드/메타데이터 재현성 버그).
  */
 export async function runGeneration(
   rawRequest: GenerationRequest,
@@ -51,6 +50,11 @@ export async function runGeneration(
     }))
   }
 
+  // 바이브/캐릭레퍼는 DB의 enabled 항목에서 준비 (바이브는 필요 시 인코딩 — 2 Anlas, 캐시됨)
+  const { vibes, newlyEncoded } = await prepareVibes(token)
+  if (newlyEncoded.length) broadcast('vibes:encoded', {}) // 카드 인코딩 표시 갱신
+  const characterReferences = await prepareCharRefs()
+
   let source = request.source
   // i2i/인페인트: 유효 NAI 해상도(64 배수)로 스냅 — 데스크톱과 동일 규칙 (Canvas로 리사이즈)
   if (source) {
@@ -74,6 +78,8 @@ export async function runGeneration(
 
   const imageFormat: 'png' | 'webp' = getSetting('image_format') === 'webp' ? 'webp' : 'png'
   const buildOpts = {
+    vibes: vibes.length > 0 ? vibes : undefined,
+    characterReferences: characterReferences.length > 0 ? characterReferences : undefined,
     imageFormat,
     i2i: source
       ? {

@@ -46,7 +46,18 @@ import {
   reorderPromptPresets,
   updatePromptPreset
 } from '@main/prompts/repo'
-import { listCharRefs, listVibes } from '@main/refs/repo'
+import {
+  collapseRefFolder,
+  colorRefFolder,
+  createRefFolder,
+  deleteRefFolder,
+  listCharRefs,
+  listVibes,
+  renameRefFolder,
+  reorderRefs,
+  updateRefImage
+} from '@main/refs/repo'
+import { addRefImagesWeb, deleteRefImageWeb } from './refs'
 import { listLibrary } from '@main/library/repo'
 import {
   adjustReserveAll,
@@ -476,9 +487,59 @@ export function registerWebHandlers(ctx: { dbVersion: number; queue: GenerationQ
     reorderPromptPresets(ids)
   })
 
-  // ── 바이브/캐릭레퍼/라이브러리 — 1차는 목록만 (생성 파이프라인 연동은 후속) ──
+  // ── 바이브/캐릭레퍼 (repo 재사용 + add/delete만 웹 구현) ──
   handle('vibes:list', () => listVibes())
+  handle('vibes:add', async ({ folderId }) => ({ count: await addRefImagesWeb('vibe', folderId) }))
+  handle('vibes:update', ({ id, patch }) => {
+    updateRefImage('vibe', id, patch)
+  })
+  handle('vibes:delete', async ({ id }) => {
+    await deleteRefImageWeb('vibe', id)
+  })
+  handle('vibes:reorder', ({ order }) => {
+    reorderRefs('vibe', order)
+  })
+  handle('vibes:folderCreate', ({ name }) => ({ id: createRefFolder('vibe', name) }))
+  handle('vibes:folderRename', ({ id, name }) => {
+    renameRefFolder('vibe', id, name)
+  })
+  handle('vibes:folderCollapse', ({ id, collapsed }) => {
+    collapseRefFolder('vibe', id, collapsed)
+  })
+  handle('vibes:folderColor', ({ id, color }) => {
+    colorRefFolder('vibe', id, color)
+  })
+  handle('vibes:folderDelete', ({ id }) => {
+    deleteRefFolder('vibe', id)
+  })
+
   handle('crefs:list', () => listCharRefs())
+  handle('crefs:add', async ({ folderId }) => ({
+    count: await addRefImagesWeb('charref', folderId)
+  }))
+  handle('crefs:update', ({ id, patch }) => {
+    updateRefImage('charref', id, patch)
+  })
+  handle('crefs:delete', async ({ id }) => {
+    await deleteRefImageWeb('charref', id)
+  })
+  handle('crefs:reorder', ({ order }) => {
+    reorderRefs('charref', order)
+  })
+  handle('crefs:folderCreate', ({ name }) => ({ id: createRefFolder('charref', name) }))
+  handle('crefs:folderRename', ({ id, name }) => {
+    renameRefFolder('charref', id, name)
+  })
+  handle('crefs:folderCollapse', ({ id, collapsed }) => {
+    collapseRefFolder('charref', id, collapsed)
+  })
+  handle('crefs:folderColor', ({ id, color }) => {
+    colorRefFolder('charref', id, color)
+  })
+  handle('crefs:folderDelete', ({ id }) => {
+    deleteRefFolder('charref', id)
+  })
+
   handle('library:list', ({ stackId, limit, offset }) => listLibrary(stackId, limit, offset))
 
   // ── 씬 (repo 재사용 — 파일 I/O 없는 채널만) ────────────────
