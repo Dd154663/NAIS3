@@ -9,6 +9,7 @@ import {
   isDriveConfigured
 } from './gdrive-controller'
 import { mountGdrivePanel } from './gdrive-panel'
+import { acquireSingleTabLock, showMultiTabNotice } from './single-tab-guard'
 
 /**
  * 웹 부트스트랩 (P5) — Electron의 preload 역할.
@@ -17,6 +18,13 @@ import { mountGdrivePanel } from './gdrive-panel'
  * 순서: 워커 부팅(ready 대기) → 메인 핸들러 → window.nais → SW → 렌더러.
  */
 export async function start(): Promise<void> {
+  // 단일 탭 가드 (잠정) — opfs-sahpool은 단일 연결만 허용. 2번째 탭은 워커를 만들지 않고 안내만
+  // (그대로 두면 워커가 OPFS 충돌로 조용히 죽어 원인 불명의 에러가 된다).
+  if (!(await acquireSingleTabLock())) {
+    showMultiTabNotice()
+    return
+  }
+
   const worker = new Worker(new URL('./worker/index.ts', import.meta.url), { type: 'module' })
   // ready 핸드셰이크 (DB 초기화·마이그레이션 완료 보장)
   const ready = await initWorkerRpc(worker)
