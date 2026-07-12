@@ -17,6 +17,7 @@ export interface GDriveStatus {
   enabled: boolean
   hasToken: boolean
   queueLength: number
+  cacheLimit: number
 }
 
 /** 최초 연결 — 동의 팝업 → 토큰을 워커에 주입 */
@@ -33,4 +34,14 @@ export async function disconnectDrive(): Promise<void> {
 
 export function gdriveStatus(): Promise<GDriveStatus> {
   return rpcInvoke<GDriveStatus>('_gdrive:status')
+}
+
+/** 대기열 수동 재시도 (패널 버튼) */
+export function drainDrive(): Promise<{ done: number; left: number }> {
+  return rpcInvoke<{ done: number; left: number }>('_gdrive:drain')
+}
+
+/** 로컬 보관 매수 변경 (패널 설정) */
+export function setDriveCacheLimit(limit: number): Promise<{ cacheLimit: number }> {
+  return rpcInvoke<{ cacheLimit: number }>('_gdrive:setCacheLimit', { limit })
 }

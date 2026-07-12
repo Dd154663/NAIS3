@@ -127,7 +127,12 @@ import {
 } from '../backend/gdrive'
 import { gdriveIndexGet, gdriveQueueAll } from '../backend/gdrive-store'
 import { idbStorageProvider, setStorageProvider } from '../backend/storage-provider'
-import { drainDriveQueue, driveStorageProvider } from '../backend/drive-provider'
+import {
+  drainDriveQueue,
+  driveStorageProvider,
+  getLocalCacheLimit,
+  setLocalCacheLimit
+} from '../backend/drive-provider'
 
 /**
  * 워커 채널 핸들러 — Electron 메인 프로세스의 ipc.ts에 대응 (P5에서 워커로 이동).
@@ -649,9 +654,22 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
   handleRaw('_gdrive:status', async () => ({
     enabled: getSetting('web_gdrive_enabled') === '1',
     hasToken: hasDriveToken(),
-    queueLength: (await gdriveQueueAll()).length
+    queueLength: (await gdriveQueueAll()).length,
+    cacheLimit: getLocalCacheLimit()
   }))
-  // 이전 세션에서 Drive가 켜져 있었으면 프로바이더 미리 활성 (토큰은 메인이 곧 무팝업 재발급).
+  handleRaw('_gdrive:drain', () => drainDriveQueue())
+  handleRaw('_gdrive:setCacheLimit', (req) => {
+    const { limit } = req as { limit: number }
+    setLocalCacheLimit(limit)
+    setSetting('web_gdrive_cache_limit', String(getLocalCacheLimit()))
+    return { cacheLimit: getLocalCacheLimit() }
+  })
+  // 저장된 캐시 한도 복원
+  {
+    const saved = Number(getSetting('web_gdrive_cache_limit'))
+    if (Number.isFinite(saved) && saved >= 1) setLocalCacheLimit(saved)
+  }
+  // 이전 세션에서 Drive가 켜져 있었으면 프로바이더 미리 활성 (토큰은 사용자가 패널에서 재연결).
   // 토큰 도착 전 생성분도 로컬 저장+대기열로 안전하게 흡수된다.
   if (getSetting('web_gdrive_enabled') === '1') setStorageProvider(driveStorageProvider)
   // 오프라인→온라인 복귀 시 대기열 자동 배수

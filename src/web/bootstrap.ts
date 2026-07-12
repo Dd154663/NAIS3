@@ -8,6 +8,7 @@ import {
   gdriveStatus,
   isDriveConfigured
 } from './gdrive-controller'
+import { mountGdrivePanel } from './gdrive-panel'
 
 /**
  * 웹 부트스트랩 (P5) — Electron의 preload 역할.
@@ -93,4 +94,7 @@ export async function start(): Promise<void> {
   }
 
   await import('@renderer/main')
+
+  // Drive 플로팅 패널 (웹 전용, 클라이언트 ID 주입된 빌드에서만) — 렌더러 뒤에 마운트
+  if (isDriveConfigured()) mountGdrivePanel()
 }

@@ -29,9 +29,18 @@ import {
   gdriveQueuePut
 } from './gdrive-store'
 
-/** 로컬에 풀해상도로 유지할 최근 원본 수 (초과분은 blob 축출, 썸네일·Drive 원본은 유지) */
-const LOCAL_CACHE_LIMIT = 40
+/** 로컬에 풀해상도로 유지할 최근 원본 수 기본값 (초과분은 blob 축출, 썸네일·Drive 원본은 유지) */
+const DEFAULT_CACHE_LIMIT = 40
 const WEB_PREFIX = 'web://'
+
+let cacheLimit = DEFAULT_CACHE_LIMIT
+/** 패널/설정에서 로컬 보관 매수 조정 (최소 1) */
+export function setLocalCacheLimit(n: number): void {
+  if (Number.isFinite(n) && n >= 1) cacheLimit = Math.floor(n)
+}
+export function getLocalCacheLimit(): number {
+  return cacheLimit
+}
 
 function guessMime(path: string): string {
   if (path.endsWith('.webp')) return 'image/webp'
@@ -57,7 +66,7 @@ async function dropFromLru(path: string): Promise<void> {
 /** 로컬 원본 수가 한도 초과면, 오래된 순으로 "업로드 확정 && 큐에 없음"인 것만 blob 축출 */
 async function evictIfNeeded(): Promise<void> {
   const localKeys = (await idbKeys('files')).filter((k) => k.startsWith(WEB_PREFIX))
-  if (localKeys.length <= LOCAL_CACHE_LIMIT) return
+  if (localKeys.length <= cacheLimit) return
 
   const lru = await gdriveLruGet()
   const queued = new Set((await gdriveQueueAll()).map((q) => q.path))
@@ -68,7 +77,7 @@ async function evictIfNeeded(): Promise<void> {
     ...lru.filter((k) => localSet.has(k))
   ]
 
-  let excess = localKeys.length - LOCAL_CACHE_LIMIT
+  let excess = localKeys.length - cacheLimit
   const survivingLru = [...lru]
   for (const path of order) {
     if (excess <= 0) break
