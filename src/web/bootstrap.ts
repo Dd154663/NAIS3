@@ -9,7 +9,7 @@ import {
   disconnectDrive,
   gdriveStatus,
   isDriveConfigured,
-  tryDriveAutoReconnect
+  restoreDriveSession
 } from './gdrive-controller'
 import { mountGdrivePanel } from './gdrive-panel'
 import { clearMirroredToken, mirrorToken, readMirroredToken } from './token-mirror'
@@ -35,10 +35,10 @@ export async function start(): Promise<void> {
 
   registerMainHandlers()
 
-  // Drive: 이전 세션에서 켰다면 부팅 시 무팝업 재연결을 시도한다(tryDriveAutoReconnect, 렌더러
-  // 마운트 뒤). 무팝업이 막히는 환경(최초 동의 필요/iOS ITP)에서는 조용히 실패해, 워커가 프로바이더를
-  // 선활성해 큐를 유지하고 패널(P6-5)이 "재연결 필요"를 표시하는 기존 흐름으로 남는다. 사용자 제스처가
-  // 필요한 동의 팝업(connectDrive)은 여전히 패널 버튼에서만 뜬다.
+  // Drive: 저장된 액세스 토큰이 만료 전이면 부팅 시 GIS 재호출·팝업 없이 재사용해 재연결한다
+  // (restoreDriveSession, 렌더러 마운트 뒤). 토큰 만료(~1h 경과) 후엔 워커가 프로바이더를 선활성해
+  // 큐를 유지하고 패널(P6-5)이 "재연결 필요"를 표시하며, 동의 팝업(connectDrive)은 제스처가 필요해
+  // 패널 버튼에서만 뜬다 — GIS는 리프레시 토큰이 없어 무팝업 부팅 재발급이 원천 불가하기 때문.
 
   // 채널 선언표 ↔ 실제 등록 대조 (가드레일 G1 — DEV 전용, 프로덕션 번들에선 제거)
   if (import.meta.env.DEV) {
@@ -138,9 +138,9 @@ export async function start(): Promise<void> {
   // Drive 플로팅 패널 (웹 전용, 클라이언트 ID 주입된 빌드에서만) — 렌더러 뒤에 마운트
   if (isDriveConfigured()) {
     mountGdrivePanel()
-    // 무팝업 자동 재연결 시도 — 성공하면 패널을 갱신(_gdrive:needToken은 패널의 새로고침 신호로
-    // 재사용)해 "연결됨"으로 반영한다. 실패는 조용히 수동 재연결 상태로 남는다. 부팅은 막지 않는다.
-    void tryDriveAutoReconnect().then((ok) => {
+    // 저장된 토큰으로 세션 복원 — 성공하면 패널을 갱신(_gdrive:needToken은 패널의 새로고침 신호로
+    // 재사용)해 "연결됨"으로 반영한다. 만료·부재는 조용히 수동 재연결 상태로 남는다. 부팅은 막지 않는다.
+    void restoreDriveSession().then((ok) => {
       if (ok) broadcastRaw('_gdrive:needToken', {})
     })
   }
