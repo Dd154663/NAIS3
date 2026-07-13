@@ -1,0 +1,9 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "include": ["src/server/**/*", "src/main/**/*", "src/shared/**/*", "src/web/rpc.ts"],
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "types": ["node", "electron-vite/node"]
+  }
+}
