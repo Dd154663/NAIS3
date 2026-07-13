@@ -6,6 +6,17 @@
  */
 import WebSocket from 'ws'
 import { decode, encode } from '@msgpack/msgpack'
+import sharp from 'sharp'
+
+/** 테스트용 초소형 PNG 바이트 (Uint8Array — msgpack bin으로 전송) */
+async function smallPng() {
+  const buf = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: { r: 200, g: 50, b: 50 } }
+  })
+    .png()
+    .toBuffer()
+  return new Uint8Array(buf)
+}
 
 const base = process.argv[2] ?? 'ws://127.0.0.1:8787'
 const key = process.argv[3] ?? process.env.NAIS3_ACCESS_KEY ?? ''
@@ -89,6 +100,97 @@ ws.on('open', async () => {
       unknownRejected = /등록되지 않은 채널/.test(e.message)
     }
     check('미등록 채널 거부', unknownRejected)
+
+    // ── 웹 내부 채널(`_` 접두) — 서버 이식분 검증 ──────────────
+    // 조각 txt 넣고 → 내보내기 왕복
+    const fragImp = await invoke('_frags:importTxts', {
+      files: [{ name: 'smoke-frag.txt', text: '조각 내용 42' }]
+    })
+    check('_frags:importTxts', fragImp.count === 1)
+    const fragList = await invoke('frags:list', undefined)
+    const frag = fragList.items.find((f) => f.name === 'smoke-frag')
+    const fragExp = frag ? await invoke('_frags:exportData', { id: frag.id }) : null
+    check(
+      '_frags:exportData 왕복',
+      !!fragExp && fragExp.name === 'smoke-frag' && fragExp.content === '조각 내용 42',
+      fragExp?.content ?? '행 없음'
+    )
+
+    // 백업 내보내기 → 파싱/주요 키 → 재주입
+    const backupJson = await invoke('_backup:exportJson', undefined)
+    let backup = null
+    try {
+      backup = JSON.parse(backupJson)
+    } catch {
+      backup = null
+    }
+    check(
+      '_backup:exportJson 파싱/키',
+      !!backup &&
+        backup._app === 'NAIS3' &&
+        backup._version === 1 &&
+        backup.tables &&
+        Array.isArray(backup.tables.fragments),
+      backup ? `테이블 ${Object.keys(backup.tables).length}개` : 'parse 실패'
+    )
+    const backupImp = await invoke('_backup:importJson', { text: backupJson })
+    check(
+      '_backup:importJson 재주입',
+      typeof backupImp.summary === 'string' && /복원 완료/.test(backupImp.summary),
+      backupImp.summary ?? backupImp.error
+    )
+
+    // 씬 JSON 가져오기 → 내보내기 형태 확인
+    const preset = await invoke('scenePresets:create', { name: 'smoke-preset' })
+    const scImp = await invoke('_scenes:importJsonText', {
+      presetId: preset.id,
+      text: JSON.stringify({ scenes: [{ name: 's1', prompt: 'p1', width: 640, height: 640 }] })
+    })
+    check('_scenes:importJsonText', scImp.count === 1)
+    const scJson = await invoke('_scenes:exportJsonData', { presetId: preset.id })
+    let scData = null
+    try {
+      scData = JSON.parse(scJson)
+    } catch {
+      scData = null
+    }
+    check(
+      '_scenes:exportJsonData 형태',
+      !!scData &&
+        scData.version === 1 &&
+        Array.isArray(scData.scenes) &&
+        scData.scenes.length === 1 &&
+        scData.scenes[0].name === 's1' &&
+        scData.scenes[0].negativePrompt === '',
+      scData ? `씬 ${scData.scenes.length}개` : 'parse 실패'
+    )
+
+    // _images:readBytes — 루트 밖/없는 경로는 null (nais-image 서빙과 동일 안전 규칙)
+    const outside = await invoke('_images:readBytes', { filePath: '/etc/passwd' })
+    const memNone = await invoke('_images:readBytes', { filePath: 'memory://nope' })
+    check('_images:readBytes 루트 밖/없음 → null', outside === null && memNone === null)
+
+    // 캐릭터 썸네일 — 작은 PNG로 설정
+    const chr = await invoke('chars:create', { name: 'smoke-char', folderId: null })
+    const setThumb = await invoke('_chars:setThumbnail', { id: chr.id, bytes: await smallPng() })
+    check(
+      '_chars:setThumbnail',
+      typeof setThumb.thumbnail === 'string' && setThumb.thumbnail.length > 0,
+      `base64 ${setThumb.thumbnail?.length ?? 0}자`
+    )
+
+    // 바이브/라이브러리 파일 추가
+    const refAdd = await invoke('_refs:addFiles', {
+      kind: 'vibe',
+      folderId: null,
+      files: [{ name: 'smoke-vibe.png', mime: 'image/png', bytes: await smallPng() }]
+    })
+    check('_refs:addFiles', refAdd.count === 1)
+    const libAdd = await invoke('_library:importFiles', {
+      files: [{ name: 'smoke-lib.png', bytes: await smallPng() }],
+      stackId: null
+    })
+    check('_library:importFiles', libAdd.count === 1)
 
     // 큐: 토큰 없는 상태의 enqueue → failed 전이 + queue:changed 이벤트 수신이 검증 대상
     const req = {

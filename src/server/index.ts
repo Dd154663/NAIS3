@@ -16,6 +16,7 @@ import { GenerationQueue } from '../main/queue/generation-queue'
 import { addEventSink } from './event-hub'
 import { dispatch, registeredChannels } from './registry'
 import { runGeneration } from './pipeline'
+import { registerWebChannels } from './web-channels'
 import { DATA_DIR } from './shims/electron'
 
 /**
@@ -50,6 +51,7 @@ function boot(): void {
   if (Number.isFinite(savedDelay) && savedDelay >= 0) queue.setDelayMs(savedDelay)
 
   registerIpcHandlers({ dbVersion, queue })
+  registerWebChannels() // 웹 내부 채널(`_` 접두) — 브라우저 워커에만 있던 데이터 위임 채널을 서버에도 등록
 
   const http = createServer((req, res) => handleHttp(req, res))
   const wss = new WebSocketServer({ noServer: true })
