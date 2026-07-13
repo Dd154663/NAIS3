@@ -2,10 +2,12 @@
 /**
  * 그림자 파일 드리프트 센티널 (유지보수 가드레일 G2).
  *
- * 웹 포트(src/web)에는 Electron 결합 때문에 원작 코드를 재사용하지 못하고 병렬로
- * 구현한 "그림자 파일"들이 있다. 원작 쪽이 바뀌면 웹 쪽도 검토가 필요하지만, 그 어긋남은
+ * 이름은 web-drift지만 이제 웹 포트(src/web)와 셀프호스트 서버(src/server) 두 포트를 함께 지킨다.
+ * 웹 포트에는 Electron 결합 때문에 원작 코드를 재사용하지 못하고 병렬로
+ * 구현한 "그림자 파일"들이, 서버 포트에는 원작 모듈을 직접 재사용하거나 이식한 지점들이 있다.
+ * 원작 쪽이 바뀌면 두 포트도 검토가 필요하지만, 그 어긋남은
  * 타입체크·빌드로는 잡히지 않는다 (동작 변경이므로). 이 스크립트는 감시 대상 원작 파일의
- * 해시를 drift-sentinel.json과 대조해, 변경이 있으면 어떤 웹 파일을 검토해야 하는지
+ * 해시를 drift-sentinel.json과 대조해, 변경이 있으면 어떤 포트 파일(웹/서버)을 검토해야 하는지
  * 알려주고 실패(exit 1)한다. CI(web-check.yml)에서 실행된다.
  *
  *   node src/web/tools/drift-check.mjs            # 검증 (npm run check:web-drift)
@@ -49,7 +51,9 @@ if (drifted.length === 0) {
   process.exit(0)
 }
 
-console.error('[web-drift] 원작 파일이 변경되었습니다. 웹 포트(src/web)의 대응 구현 검토가 필요합니다.\n')
+console.error(
+  '[web-drift] 원작 파일이 변경되었습니다. 포트(웹 src/web · 서버 src/server)의 대응 구현 검토가 필요합니다.\n'
+)
 for (const { file, entry } of drifted) {
   console.error(`  변경됨: ${file}`)
   for (const m of entry.mirror) console.error(`    → 검토: ${m}`)

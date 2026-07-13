@@ -1,30 +1,36 @@
 {
-  "$comment": "그림자 파일 드리프트 센티널 — drift-check.mjs가 검증. 원작(src/main) 파일이 바뀌면 mirror에 적힌 웹 구현을 검토한 뒤 `npm run check:web-drift:update`로 해시를 갱신한다. 해시는 CRLF→LF 정규화 후 sha256.",
+  "$comment": "그림자 파일 드리프트 센티널 — drift-check.mjs가 검증. 원작(src/main) 파일이 바뀌면 mirror에 적힌 포트 구현(웹 src/web · 서버 src/server)을 검토한 뒤 `npm run check:web-drift:update`로 해시를 갱신한다. 해시는 CRLF→LF 정규화 후 sha256. mirror의 src/server 항목은 셀프호스트 서버가 원본에 의존하는 지점이다.",
   "watch": {
     "src/main/ipc.ts": {
       "hash": "60084538705392ddb96f8f8896de6438f78b31dc043e162f29748c6789d03534",
       "mirror": [
         "src/web/worker/handlers.ts",
-        "src/web/main-handlers.ts"
+        "src/web/main-handlers.ts",
+        "src/server/index.ts (registerIpcHandlers로 채널 등록표 전체 재사용 + broadcast 이벤트 중계)"
       ]
     },
     "src/main/index.ts": {
       "hash": "b5c48ab19ec7abdffe6dc7c6bc22dc9489528696c82a176ad55ad3b4d4e80ed0",
       "mirror": [
         "src/web/bootstrap.ts",
-        "src/web/backend/pipeline.ts"
+        "src/web/backend/pipeline.ts",
+        "src/server/pipeline.ts (GenerationQueue 콜백=생성 파이프라인을 이식한 사본)",
+        "src/server/index.ts (nais-image 프로토콜을 HTTP로 이식)"
       ]
     },
     "src/main/images/storage.ts": {
       "hash": "cb8791e84275a6af0be4c55e0d9d34836dc60056a7d74aea978e2fb7d2d88d6f",
       "mirror": [
-        "src/web/backend/images/storage.ts"
+        "src/web/backend/images/storage.ts",
+        "src/server/index.ts · src/server/web-channels.ts (isMemoryPath/isUnderImagesRoot 안전 규칙 재사용)"
       ]
     },
     "src/main/db/settings.ts": {
       "hash": "70a76421f0fefb4879e0ba324922885aeb661bd2ed07b2840b3328fb17776b4d",
       "mirror": [
-        "src/web/backend/db/settings.ts"
+        "src/web/backend/db/settings.ts",
+        "src/server/shims/electron.ts (safeStorage 심 폴백 경로가 이 모듈의 계약에 의존)",
+        "src/server/pipeline.ts (getNaiToken/getSetting 재사용)"
       ]
     },
     "src/main/db/index.ts": {
@@ -39,10 +45,23 @@
         "src/web/backend/refs.ts"
       ]
     },
+    "src/main/refs/repo.ts": {
+      "hash": "2116f29abdafdd7e2f943ebf1be42a5599aef4bcd21e50a4ce0c62e4e98e2e67",
+      "mirror": [
+        "src/server/web-channels.ts (_refs:addFiles가 addRefImages의 파일 결합 로직을 미러링)"
+      ]
+    },
     "src/main/backup/repo.ts": {
       "hash": "0cdde90fcf2b160b991d77ff410d6bb6bfc8a8b3751f8dd907404ce5aa30a7c7",
       "mirror": [
-        "src/web/backend/backup.ts"
+        "src/web/backend/backup.ts",
+        "src/server/web-channels.ts (_backup:export/importJson이 exportAll/importAll을 직접 재사용 — 스키마 호환 보장 지점)"
+      ]
+    },
+    "src/main/backup/nais2.ts": {
+      "hash": "34cceaf1d55ce4b6b2ab285b4a82e7bcf1b274365ca685d17d35b1788966b0be",
+      "mirror": [
+        "src/server/web-channels.ts (_backup:importJson 경로가 importNais2를 직접 재사용 — nais2 스키마 호환 보장 지점)"
       ]
     }
   }

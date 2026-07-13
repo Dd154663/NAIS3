@@ -1,9 +1,11 @@
-# 웹(PWA) 포트 유지보수 가드레일 — src/web/README.md "유지보수 계약" 참조.
-# 원작 코드 수정이 웹 포트를 깨뜨리면 여기서 자동으로 드러난다:
+# 웹(PWA)·서버 포트 유지보수 가드레일 — src/web/README.md "유지보수 계약" 참조.
+# 원작 코드 수정이 포트(웹 src/web · 서버 src/server)를 깨뜨리면 여기서 자동으로 드러난다:
 #   - typecheck / test: 데스크톱 회귀 (웹 포트의 가산 수정 2곳 포함)
-#   - check:web-drift: 웹이 병렬 구현한 원작 파일(src/main 글루)의 변경 감지
+#   - check:web-drift: 웹·서버가 병렬 구현/재사용한 원작 파일(src/main 글루)의 변경 감지
 #   - build:web: 웹 타입체크(typecheck:webapp — 채널 커버리지 표 포함) + 번들
-# 빨간불이어도 데스크톱 릴리스는 막히지 않는다 — 웹 포트 쪽 대응이 필요하다는 신호일 뿐.
+#   - typecheck:server / build:server: 서버 타입체크 + esbuild 번들
+#   - 서버 스모크: 실서버를 띄워 WS 채널·큐·백업 왕복을 실제로 호출하는 회귀망
+# 빨간불이어도 데스크톱 릴리스는 막히지 않는다 — 포트 쪽 대응이 필요하다는 신호일 뿐.
 name: Web Check
 
 on:
@@ -38,3 +40,38 @@ jobs:
 
       - name: 웹 타입체크 + 빌드
         run: npm run build:web
+
+      - name: 서버 타입체크
+        run: npm run typecheck:server
+
+      - name: 서버 빌드 (esbuild 번들)
+        run: npm run build:server
+
+      # 스모크는 실서버(better-sqlite3·sharp)를 구동한다. 위 `npm ci --ignore-scripts`가
+      # 네이티브 install 스크립트를 건너뛰므로 여기서 better-sqlite3 바이너리만 리빌드한다.
+      # (sharp는 @img/sharp-* 플랫폼 패키지로 설치돼 리빌드 불필요.)
+      - name: 네이티브 모듈 리빌드 (better-sqlite3)
+        run: npm rebuild better-sqlite3
+
+      # 실서버를 백그라운드로 띄우고 /healthz 대기 후 스모크(139채널·큐·백업 왕복)를 호출한다.
+      - name: 서버 스모크 (실서버 WS 왕복 회귀망)
+        env:
+          NAIS3_DATA_DIR: ${{ runner.temp }}/nais3-data-ci
+          NAIS3_ACCESS_KEY: ci-key
+        run: |
+          node dist-server/nais3-server.cjs &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          # /healthz 폴링 대기 (0.5초 × 최대 30회 = 약 15초)
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8787/healthz >/dev/null; then
+              echo "서버 기동 확인 (${i}회 폴링)"
+              break
+            fi
+            sleep 0.5
+          done
+          curl -sf http://127.0.0.1:8787/healthz >/dev/null || { echo "서버 기동 실패"; exit 1; }
+          STATUS=0
+          node src/server/tools/smoke.mjs ws://127.0.0.1:8787 ci-key || STATUS=$?
+          kill $SERVER_PID 2>/dev/null || true
+          exit $STATUS
