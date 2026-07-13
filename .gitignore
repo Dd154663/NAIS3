@@ -32,3 +32,9 @@ Thumbs.db
 # 내부 문서 (공개 제외)
 docs
 RESEARCH.md
+
+# 개인 작업물 — 메모리/플랜/백업 (실제는 ~/.claude 밖에 있으나, 리포 내 사본 방지용 방어선)
+memory/
+plans/
+*memoryplansbackup*.zip
+MEMORY.md
