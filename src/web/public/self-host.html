@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f0f10" />
+    <meta name="robots" content="noindex" />
+    <title>NAIS3 셀프호스트 가이드</title>
+    <!--
+      단일 진실 공급원(P1-④): 이 파일은 vite publicDir(src/web/public)에 있어 빌드 시
+      out/web/self-host.html 로 그대로 복사된다. GitHub Pages(로컬 모드)와 셀프호스트
+      서버 양쪽에서 /self-host.html 로 열린다. 외부 요청 0 — 폰트·CDN·이미지 모두 인라인.
+    -->
+    <style>
+      :root {
+        --paper: #0f0f10;
+        --surface: #161618;
+        --surface-2: #1e1e21;
+        --ink: #e9e9ea;
+        --muted: #8e8e94;
+        --faint: #5d5d63;
+        --line: #252528;
+        --accent: #eb9550;
+        --accent-soft: rgba(235, 149, 80, 0.14);
+        --danger: #c47a72;
+        --ok: #6fbf8b;
+        --font-ui:
+          system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo',
+          'Malgun Gothic', 'Noto Sans KR', sans-serif;
+        --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--font-ui);
+        font-size: 16px;
+        line-height: 1.7;
+        overflow-wrap: break-word;
+        word-break: break-word;
+      }
+
+      .wrap {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 32px 20px 96px;
+      }
+
+      header.masthead {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 20px;
+        margin-bottom: 8px;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        margin: 0 0 6px;
+      }
+
+      h1 {
+        font-size: clamp(24px, 6vw, 32px);
+        line-height: 1.25;
+        margin: 0 0 10px;
+        font-weight: 700;
+      }
+
+      .lede {
+        color: var(--muted);
+        font-size: 15px;
+        margin: 0;
+      }
+
+      h2 {
+        font-size: clamp(19px, 4.5vw, 23px);
+        margin: 44px 0 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        font-weight: 700;
+      }
+
+      h2:first-of-type {
+        border-top: none;
+        padding-top: 0;
+      }
+
+      h3 {
+        font-size: 16px;
+        margin: 26px 0 8px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+
+      p {
+        margin: 10px 0;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      strong {
+        color: #fff;
+        font-weight: 600;
+      }
+
+      ul,
+      ol {
+        margin: 10px 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 6px 0;
+      }
+
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.86em;
+        background: var(--surface-2);
+        color: #f0c89a;
+        padding: 2px 6px;
+        border-radius: 5px;
+      }
+
+      pre {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        margin: 12px 0;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      pre code {
+        background: none;
+        color: #e6e6e8;
+        padding: 0;
+        font-size: 13.5px;
+        line-height: 1.65;
+        white-space: pre;
+      }
+
+      pre code .cmt {
+        color: var(--faint);
+      }
+
+      /* 반응형 표: 셀은 줄바꿈 허용, 넘치면 컨테이너가 가로 스크롤 */
+      .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 14px 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 460px;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+
+      thead th {
+        background: var(--surface);
+        color: var(--muted);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .callout {
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        background: var(--accent-soft);
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 16px 0;
+        font-size: 14.5px;
+      }
+
+      .callout.warn {
+        border-left-color: var(--danger);
+        background: rgba(196, 122, 114, 0.12);
+      }
+
+      .callout p {
+        margin: 6px 0;
+      }
+
+      .callout .tag {
+        font-weight: 700;
+        color: var(--accent);
+      }
+
+      .callout.warn .tag {
+        color: var(--danger);
+      }
+
+      .toc {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin: 20px 0 8px;
+        font-size: 14.5px;
+      }
+
+      .toc strong {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 12.5px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .toc ol {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        background: var(--surface-2);
+        vertical-align: middle;
+        margin-left: 6px;
+      }
+
+      kbd {
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+
+      footer.foot {
+        margin-top: 56px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        color: var(--faint);
+        font-size: 13px;
+      }
+
+      .back-home {
+        display: inline-block;
+        margin-top: 6px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <header class="masthead">
+        <p class="eyebrow">NAIS3</p>
+        <h1>NAIS3 셀프호스트 가이드</h1>
+        <p class="lede">
+          예약 생성을 백그라운드에서 계속 돌리고, PC와 폰이 같은 히스토리를 보게 하려면 내
+          서버(셀프호스트)가 필요합니다. 이 문서는 개인용 서버를 직접 세우는 두 가지 공식 방법을
+          안내합니다.
+        </p>
+      </header>
+
+      <nav class="toc" aria-label="목차">
+        <strong>목차</strong>
+        <ol>
+          <li><a href="#why">왜 서버 모드인가</a></li>
+          <li><a href="#quickstart">빠른 시작 (같은 PC에서 5분)</a></li>
+          <li><a href="#track-a">트랙 A — PC + Tailscale (폰에서 접속)</a></li>
+          <li><a href="#track-b">트랙 B — Oracle Always Free (상시 무료 서버)</a></li>
+          <li><a href="#security">보안</a></li>
+          <li><a href="#backup">데이터와 백업</a></li>
+          <li><a href="#update">업데이트</a></li>
+          <li><a href="#trouble">문제 해결</a></li>
+        </ol>
+      </nav>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="why">왜 서버 모드인가</h2>
+      <p>
+        NAIS3는 두 가지 방식으로 돌아갑니다. <strong>로컬 모드</strong>는 설치 없이 브라우저에서
+        바로 쓸 수 있지만, 탭을 닫거나 기기가 잠들면 진행 중인 생성이 멈추고 데이터는 그 기기에만
+        남습니다. <strong>서버 모드</strong>는 내 서버가 예약을 대신 실행하므로, 앱을 닫아도 생성이
+        이어지고 어느 기기에서 접속하든 같은 히스토리를 봅니다.
+      </p>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>로컬 모드</th>
+              <th>서버 모드</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>시작</td>
+              <td>설치 없이 브라우저에서 바로</td>
+              <td>서버를 한 번 세워야 함</td>
+            </tr>
+            <tr>
+              <td>예약 생성</td>
+              <td>탭이 열려 있는 동안만 진행 (탭 닫힘·절전 시 중단)</td>
+              <td>서버가 상주하며 백그라운드로 계속 진행</td>
+            </tr>
+            <tr>
+              <td>데이터 위치</td>
+              <td>브라우저(기기)마다 따로 — 기기 간 공유 없음</td>
+              <td>서버 한 곳 — PC와 폰이 같은 히스토리</td>
+            </tr>
+            <tr>
+              <td>클라우드 저장</td>
+              <td>없음 (기기 저장소 한계)</td>
+              <td>서버가 곧 저장소 (원본이 서버에 남음)</td>
+            </tr>
+            <tr>
+              <td>비용</td>
+              <td>무료</td>
+              <td>내 PC면 0원 / VPS면 무료~소액</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <p>
+          <span class="tag">참고</span> 서버 모드는 로컬 모드를 <em>대체</em>하지 않고
+          <em>추가</em>하는 선택지입니다. 서버를 꺼도 로컬 모드는 그대로 남습니다. NAI 토큰과
+          이미지는 <strong>내 서버에만</strong> 저장되며, 제작자는 코드만 배포합니다 (외부 서비스로
+          데이터가 가지 않습니다).
+        </p>
+      </div>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="quickstart">빠른 시작 (같은 PC에서 5분)</h2>
+      <p>
+        우선 내 PC 한 대에서 서버를 띄워 브라우저로 접속해 봅니다. 폰 접속은
+        <a href="#track-a">트랙 A</a>에서 이어집니다.
+      </p>
+
+      <h3>준비물</h3>
+      <ul>
+        <li>
+          <strong>Node.js 20 이상</strong> —
+          <a href="https://nodejs.org/" target="_blank" rel="noopener">nodejs.org</a>에서 설치
+        </li>
+        <li><strong>git</strong></li>
+      </ul>
+
+      <h3>1. 클론과 의존성 설치</h3>
+      <pre><code>git clone https://github.com/dd154663/NAIS3.git
+cd NAIS3
+npm ci</code></pre>
+
+      <h3>2. 빌드 (두 줄)</h3>
+      <p>
+        웹 프론트와 서버를 각각 빌드합니다. 서버가 웹 빌드를 함께 서빙하므로
+        <strong>둘 다</strong> 필요합니다.
+      </p>
+      <pre><code>npm run build:web
+npm run build:server</code></pre>
+
+      <h3>3. 실행</h3>
+      <p>
+        접속을 보호할 <strong>액세스 키</strong>를 정해 환경 변수로 넘깁니다 (길고 추측하기 어려운
+        값으로).
+      </p>
+      <pre><code><span class="cmt"># macOS · Linux</span>
+NAIS3_ACCESS_KEY=여기에-긴-키 node dist-server/nais3-server.cjs</code></pre>
+      <pre><code><span class="cmt"># Windows (PowerShell)</span>
+$env:NAIS3_ACCESS_KEY="여기에-긴-키"; node dist-server/nais3-server.cjs</code></pre>
+
+      <h3>4. 접속</h3>
+      <p>
+        브라우저에서 아래 주소를 첫 방문 때 키와 함께 엽니다. 키는 브라우저에 저장되어 다음부터는
+        주소만으로 접속됩니다.
+      </p>
+      <pre><code>http://127.0.0.1:8787/?serverKey=여기에-긴-키</code></pre>
+
+      <div class="callout">
+        <p>
+          <span class="tag">환경 변수</span> 서버 동작을 조정하는 값들입니다. 기본값으로도
+          동작합니다.
+        </p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>변수</th>
+              <th>의미 · 기본값</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>NAIS3_ACCESS_KEY</code></td>
+              <td>
+                접속 액세스 키. 설정하면 외부(<code>0.0.0.0</code>) 접속 허용, 미설정 시
+                <code>127.0.0.1</code> 전용
+              </td>
+            </tr>
+            <tr>
+              <td><code>NAIS3_PORT</code></td>
+              <td>포트 (기본 <code>8787</code>)</td>
+            </tr>
+            <tr>
+              <td><code>NAIS3_HOST</code></td>
+              <td>
+                바인드 주소 (키 설정 시 <code>0.0.0.0</code>, 미설정 시 <code>127.0.0.1</code>)
+              </td>
+            </tr>
+            <tr>
+              <td><code>NAIS3_DATA_DIR</code></td>
+              <td>DB·이미지·암호화 키가 모두 들어가는 폴더 (기본 <code>~/.nais3-server</code>)</td>
+            </tr>
+            <tr>
+              <td><code>NAIS3_WEB_DIST</code></td>
+              <td>서빙할 웹 빌드 경로 (기본 <code>out/web</code>)</td>
+            </tr>
+            <tr>
+              <td><code>NAIS3_APP_ROOT</code></td>
+              <td><code>resources/</code>가 있는 위치 (기본 현재 디렉터리)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="track-a">트랙 A — PC + Tailscale <span class="pill">폰에서 접속</span></h2>
+      <p>
+        "컴퓨터를 켜 두고 나간 뒤 폰으로 확인"하는 패턴입니다.
+        <a href="https://tailscale.com/" target="_blank" rel="noopener">Tailscale</a>은 내 기기들만
+        연결하는 사설망을 만들고, <code>ts.net</code> 도메인과 TLS 인증서를 자동으로 발급해 줍니다.
+        덕분에 서버는 그냥 평문 HTTP로 두고도 폰에서 <code>https://</code>로 안전하게 접속할 수
+        있습니다 (혼합 콘텐츠·PWA 설치 문제 해결).
+      </p>
+
+      <h3>1. Tailscale 설치 · 로그인</h3>
+      <p>
+        <strong>PC와 폰 양쪽</strong>에 Tailscale을 설치하고 <strong>같은 계정</strong>으로
+        로그인합니다. 그러면 둘이 같은 사설망(테일넷)에 들어옵니다.
+      </p>
+
+      <h3>2. 서버 실행</h3>
+      <p>빠른 시작과 동일하게 서버를 띄워 둡니다 (액세스 키 포함).</p>
+      <pre><code>NAIS3_ACCESS_KEY=여기에-긴-키 node dist-server/nais3-server.cjs</code></pre>
+
+      <h3>3. Tailscale로 포트 노출</h3>
+      <p>PC에서 아래 명령으로 8787 포트를 테일넷에 TLS로 공개합니다.</p>
+      <pre><code>tailscale serve --bg 8787</code></pre>
+      <div class="callout warn">
+        <p>
+          <span class="tag">버전 주의</span> <code>tailscale serve</code>의 문법은 버전에 따라
+          다릅니다. 위 명령이 안 되면 <code>tailscale serve --help</code>로 현재 버전의 사용법을
+          확인하세요.
+        </p>
+      </div>
+
+      <h3>4. 폰에서 접속</h3>
+      <p>
+        폰 브라우저에서 PC의 테일넷 주소를 엽니다. 주소는 <code>tailscale serve status</code> 또는
+        Tailscale 관리 화면에서 확인할 수 있습니다.
+      </p>
+      <pre><code>https://내기기이름.테일넷이름.ts.net/?serverKey=여기에-긴-키</code></pre>
+      <p>
+        서버가 웹 빌드를 함께 서빙하므로 접속 주소는 이 하나뿐입니다. 첫 방문 때 붙인
+        <code>?serverKey=</code>는 브라우저에 저장되어 다음부터는 주소만으로 열립니다.
+        <code>https</code> 뒤라 앱이 자동으로 <code>wss</code>(보안 웹소켓)를 씁니다.
+      </p>
+
+      <div class="callout warn">
+        <p>
+          <span class="tag">절전 주의</span> PC가 잠들면 서버도 멈춰 예약이 진행되지 않습니다. 전원
+          옵션에서 <strong>절전·최대 절전을 끄거나</strong>, 최소한 예약이 도는 동안에는 화면만
+          꺼지고 시스템은 깨어 있도록 설정하세요.
+        </p>
+      </div>
+
+      <h3>Windows 자동 시작 (선택)</h3>
+      <p>
+        재부팅 후에도 서버가 자동으로 뜨게 하려면 <strong>작업 스케줄러</strong>에 "로그온 시 시작"
+        작업을 하나 만들고, 프로그램에 <kbd>node</kbd>, 인수에
+        <code>dist-server/nais3-server.cjs</code>, 시작 위치에 클론한 폴더 경로를 넣고, 환경 변수
+        <code>NAIS3_ACCESS_KEY</code>를 지정하면 됩니다.
+      </p>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="track-b">트랙 B — Oracle Always Free <span class="pill">상시 무료 서버</span></h2>
+      <p>
+        PC를 계속 켜 두기 부담스럽다면, 항상 켜져 있는 무료 클라우드 서버가 좋습니다. Oracle Cloud의
+        <strong>Always Free</strong> Ampere A1 인스턴스는 arm64 4 OCPU / 24GB RAM에 블록 스토리지
+        200GB까지 무료라 이미지 용량 걱정이 없습니다. NAIS3의 arm64 스택 호환은 확인되었습니다.
+      </p>
+
+      <div class="callout warn">
+        <p>
+          <span class="tag">유휴 회수 주의</span> 무료 계정은 유휴 인스턴스를 회수하는 정책이
+          있습니다. 서버가 사라지지 않게 하려면 결제 수단을 등록해
+          <strong>PAYG(종량제)로 전환</strong>하세요. Always Free 한도 안에서 쓰면 요금은 계속
+          $0입니다.
+        </p>
+      </div>
+
+      <h3>1. 인스턴스 만들기</h3>
+      <ul>
+        <li>Shape: <strong>Ampere A1 (arm64)</strong>, 이미지: Ubuntu LTS 등 최신 리눅스</li>
+        <li>
+          A1은 인기가 많아 만들 때 용량 부족이 날 수 있습니다 — 잠시 뒤 재시도하거나 다른 가용
+          도메인을 선택하세요.
+        </li>
+      </ul>
+
+      <h3>2. Node.js · git 설치와 클론</h3>
+      <p>SSH로 접속한 뒤 Node 20+와 git을 설치하고 저장소를 클론합니다.</p>
+      <pre><code>git clone https://github.com/dd154663/NAIS3.git
+cd NAIS3</code></pre>
+
+      <h3>3. 의존성 설치 (Electron 없이)</h3>
+      <p>
+        서버 모드는 Electron이 필요 없습니다. Electron 바이너리 다운로드를 건너뛰고, 네이티브 모듈만
+        이 서버에 맞게 다시 빌드합니다. <code>sharp</code>는 arm64 프리빌트가 제공되어 그대로
+        동작합니다.
+      </p>
+      <pre><code>ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts
+npm rebuild better-sqlite3</code></pre>
+
+      <h3>4. 빌드</h3>
+      <pre><code>npm run build:web
+npm run build:server</code></pre>
+
+      <h3>5. systemd 서비스로 상주시키기</h3>
+      <p>
+        서버가 재부팅·크래시 후에도 자동으로 다시 뜨게 systemd 유닛을 만듭니다.
+        <code>/etc/systemd/system/nais3.service</code>에 아래 내용을 넣으세요 (경로·사용자·키는 본인
+        환경에 맞게).
+      </p>
+      <pre><code><span class="cmt">[Unit]</span>
+Description=NAIS3 self-host server
+After=network-online.target
+Wants=network-online.target
+
+<span class="cmt">[Service]</span>
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/NAIS3
+Environment=NAIS3_ACCESS_KEY=여기에-긴-키
+Environment=NAIS3_DATA_DIR=/home/ubuntu/.nais3-server
+ExecStart=/usr/bin/node /home/ubuntu/NAIS3/dist-server/nais3-server.cjs
+Restart=always
+RestartSec=3
+
+<span class="cmt">[Install]</span>
+WantedBy=multi-user.target</code></pre>
+      <pre><code>sudo systemctl daemon-reload
+sudo systemctl enable --now nais3
+sudo systemctl status nais3   <span class="cmt"># 상태 확인</span></code></pre>
+
+      <h3>6. Tailscale로만 접속 (공개 포트 열지 않기)</h3>
+      <p>인스턴스에도 Tailscale을 설치·로그인한 뒤, 트랙 A와 똑같이 포트를 테일넷에 공개합니다.</p>
+      <pre><code>tailscale serve --bg 8787</code></pre>
+      <p>
+        이렇게 하면 Oracle의
+        <strong>보안 목록(Security List)이나 방화벽을 건드릴 필요가 없습니다</strong>. 공개
+        인터넷에는 포트를 하나도 열지 않고, 테일넷 안에서만 <code>https://이름.ts.net</code>으로
+        접속하니 NAI 토큰을 보관하는 서버가 외부에 노출되지 않습니다.
+      </p>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="security">보안</h2>
+      <p>
+        서버 모드에서는 <strong>NAI 토큰이 서버에 저장</strong>됩니다. 토큰은 AES-256-GCM으로
+        암호화되어 DB에 들어가고, 복호화 키는 데이터 폴더 안의 <code>userData/secret.key</code>에
+        있습니다 (즉 DB와 <code>secret.key</code>는 한 세트). 토큰은 Anlas를 지출할 수 있는
+        권한이므로 서버가 뚫리면 잔고가 소진될 수 있습니다. 다음을 지키세요.
+      </p>
+      <ul>
+        <li>
+          <strong>서버는 반드시 사설망(Tailscale) 뒤에</strong> 두고, 공개 인터넷에 포트를 열지
+          마세요.
+        </li>
+        <li>액세스 키는 <strong>길고 추측 불가능하게</strong> 정하세요.</li>
+        <li>
+          공개 인터넷 노출은 권장하지 않습니다. 꼭 필요하면 고급 사용자 한정으로 리버스 프록시(Caddy
+          등) + TLS를 직접 구성하세요.
+        </li>
+      </ul>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="backup">데이터와 백업</h2>
+      <p>
+        서버의 모든 상태 — DB, 이미지 원본, 암호화 키 — 는 <code>NAIS3_DATA_DIR</code>
+        <strong>한 폴더</strong> 아래에 모입니다 (기본 <code>~/.nais3-server</code>). 백업은 이 폴더
+        하나만 복사하면 됩니다.
+      </p>
+      <div class="callout">
+        <p>
+          <span class="tag">가장 안전한 백업</span> SQLite는 WAL 모드로 동작하므로, 서버를 잠깐 멈춘
+          뒤 폴더를 통째로 복사하는 것이 가장 안전합니다 (실행 중 복사는 파일이 어긋날 수 있습니다).
+        </p>
+      </div>
+      <p>
+        서버 모드에서는 <strong>자동저장을 켜 두는 것을 권장</strong>합니다. 원본이 서버에 남아야
+        나중에 폰에서 다시 열어 볼 수 있기 때문입니다 (Oracle 200GB면 용량 걱정도 없습니다).
+      </p>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="update">업데이트</h2>
+      <p>새 버전으로 올리려면 코드를 당겨 다시 빌드하고 서버를 재시작합니다.</p>
+      <pre><code>git pull
+npm run build:web
+npm run build:server</code></pre>
+      <p>
+        직접 실행 중이면 서버를 껐다 다시 켜고, systemd라면
+        <code>sudo systemctl restart nais3</code>로 재시작합니다. 데이터 폴더는 그대로 유지됩니다.
+      </p>
+
+      <!-- ────────────────────────────────────────────────────── -->
+      <h2 id="trouble">문제 해결</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>증상</th>
+              <th>해결</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"웹 빌드가 없습니다" 메시지</td>
+              <td>
+                <code>npm run build:web</code>을 실행한 뒤 서버를 재시작하세요. 서버는
+                <code>out/web</code>을 서빙합니다.
+              </td>
+            </tr>
+            <tr>
+              <td>401 또는 접속 실패</td>
+              <td>
+                액세스 키가 맞지 않습니다. 주소에 <code>?serverKey=키</code>를 다시 붙여 여세요
+                (키가 브라우저에 다시 저장됩니다).
+              </td>
+            </tr>
+            <tr>
+              <td>상단에 "자동 재접속 중" 배너</td>
+              <td>
+                서버가 켜져 있는지, 네트워크(테일넷 연결)가 정상인지 확인하세요. 앱은 연결이
+                돌아오면 자동으로 재접속합니다.
+              </td>
+            </tr>
+            <tr>
+              <td>로컬 모드로 돌아가고 싶을 때</td>
+              <td>
+                별도 서버 주소로 접속한 경우 주소에 <code>?server=off</code>를 붙여 열면 로컬 모드로
+                복귀합니다. (서버가 직접 서빙한 페이지에는 해당 없음 — 그 주소는 서버 전용입니다.)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="foot">
+        <p>이 문서는 NAIS3 웹 빌드에 포함된 단일 가이드입니다 — <code>/self-host.html</code>.</p>
+        <a class="back-home" href="./">← 앱으로 돌아가기</a>
+      </footer>
+    </div>
+  </body>
+</html>

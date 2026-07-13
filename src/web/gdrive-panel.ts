@@ -103,6 +103,9 @@ const GUIDE_HTML = `
   <li><b>한 번에 한 탭</b>에서만 여세요. 같은 브라우저의 다른 탭에서 앱을 열면 저장소 접근이 충돌할 수 있습니다.</li>
   <li><b>연결 팝업이 안 뜰 때</b>는 브라우저의 팝업 차단을 해제하세요. 연결은 반드시 패널의 버튼 클릭으로 시작해야 합니다.</li>
 </ul>
+
+<h4>더 알아보기</h4>
+<p class="muted">예약 생성을 백그라운드로 계속 돌리고 PC·폰이 같은 히스토리를 보게 하려면 개인 서버를 세우는 방법도 있습니다 → <a href="${import.meta.env.BASE_URL}self-host.html" target="_blank" rel="noopener">셀프호스트 서버 가이드</a></p>
 `
 
 export function mountGdrivePanel(): void {
@@ -213,11 +216,7 @@ export function mountGdrivePanel(): void {
     badge.className = 'nais3-gd-badge' + (connected ? ' on' : reconnect ? ' warn' : '')
     badge.textContent = connected ? '연결됨' : reconnect ? '재연결 필요' : '연결 안 됨'
 
-    actionBtn.textContent = connected
-      ? '연결 해제'
-      : reconnect
-        ? '재연결'
-        : 'Google Drive 연결'
+    actionBtn.textContent = connected ? '연결 해제' : reconnect ? '재연결' : 'Google Drive 연결'
     actionBtn.className = 'nais3-gd-btn' + (connected ? '' : ' primary')
 
     queueRow.style.display = s.queueLength > 0 ? 'flex' : 'none'

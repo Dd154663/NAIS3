@@ -30,8 +30,9 @@ coverage
 Thumbs.db
 .idea
 
-# 내부 문서 (공개 제외)
-docs
+# 내부 문서 (공개 제외) — 단, 셀프호스트 포인터 문서는 공개(단일 진실 공급원인 웹 가이드로 연결)
+docs/*
+!docs/self-host.md
 RESEARCH.md
 
 # 개인 작업물 — 메모리/플랜/백업 (실제는 ~/.claude 밖에 있으나, 리포 내 사본 방지용 방어선)

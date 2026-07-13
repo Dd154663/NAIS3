@@ -96,7 +96,14 @@ export function showServerNotice(message: string, fatal: boolean): void {
     desc.textContent = served
       ? `${message} — 키가 필요한 서버라면 주소에 ?serverKey=키 를 붙여 다시 여세요.`
       : `${message} — 서버가 켜져 있는지, 주소·키가 맞는지 확인하세요. 로컬 모드로 돌아가려면 주소에 ?server=off 를 붙여 여세요.`
-    box.append(title, desc)
+    // 셀프호스트 가이드 링크 — 서버 세팅을 처음 하는 사용자의 탈출로. 새 탭으로 연다.
+    const guide = document.createElement('a')
+    guide.href = `${import.meta.env.BASE_URL}self-host.html`
+    guide.target = '_blank'
+    guide.rel = 'noopener'
+    guide.textContent = '셀프호스트 가이드 열기'
+    guide.style.cssText = 'font-size:13px;color:#eb9550;text-decoration:none'
+    box.append(title, desc, guide)
     document.body.appendChild(box)
     return
   }
