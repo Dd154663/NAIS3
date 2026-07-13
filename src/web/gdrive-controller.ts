@@ -9,7 +9,11 @@
  * 시도하지 않는다. 토큰이 없으면 워커가 큐에 쌓아두고, 패널이 상태로 "재연결 필요"를 노출한다.
  */
 import { rpcInvoke } from './backend/ipc'
-import { isDriveConfigured, requestDriveToken, revokeDriveToken } from './backend/gdrive-auth'
+import {
+  isDriveConfigured,
+  requestDriveToken,
+  revokeDriveToken
+} from './backend/gdrive-auth'
 
 export { isDriveConfigured }
 
@@ -24,6 +28,31 @@ export interface GDriveStatus {
 export async function connectDrive(): Promise<{ hasToken: boolean }> {
   const token = await requestDriveToken(true)
   return rpcInvoke<{ hasToken: boolean }>('_gdrive:setToken', token)
+}
+
+/**
+ * 부팅 자동 재연결 (무팝업) — 이전 세션에서 Drive를 켰고 액세스 토큰만 만료된 경우,
+ * GIS 무팝업 발급(prompt:'')을 시도한다. 이미 동의한 계정·세션이 살아 있으면 클릭 없이
+ * 재연결되고, 최초 동의가 필요하거나 iOS Safari의 ITP(서드파티 쿠키 차단)로 막히면
+ * 조용히 실패해 기존처럼 패널의 수동 재연결로 남는다. 부팅을 막지 않도록 fire-and-forget로 호출.
+ * @returns 자동 재연결 성공 여부
+ */
+export async function tryDriveAutoReconnect(): Promise<boolean> {
+  if (!isDriveConfigured()) return false
+  let status: GDriveStatus
+  try {
+    status = await gdriveStatus()
+  } catch {
+    return false // 워커 미준비 등
+  }
+  if (!status.enabled || status.hasToken) return false // 애초에 꺼졌거나 이미 연결됨
+  try {
+    const token = await requestDriveToken(false)
+    const res = await rpcInvoke<{ hasToken: boolean }>('_gdrive:setToken', token)
+    return res.hasToken
+  } catch {
+    return false // 무팝업 실패 → 수동 재연결 필요
+  }
 }
 
 /** 연결 해제 — 토큰 폐기 + 워커 상태 초기화 */

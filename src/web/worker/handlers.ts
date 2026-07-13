@@ -164,6 +164,14 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
   handle('nai:deleteToken', () => {
     deleteNaiToken()
   })
+  // 웹 전용 — 메인 스레드 localStorage 미러에서 토큰 복원 (부팅 시 DB에 없을 때만).
+  // 최초 입력 때 이미 검증됐으므로 재검증 없이 DB에만 기록한다. OPFS 축출로 DB가
+  // 초기화된 세션(iOS Safari 등)의 토큰 재입력 부담을 없앤다.
+  handleRaw('_token:restore', (req) => {
+    const { token } = req as { token: string }
+    if (token && !getNaiToken()) setNaiToken(token)
+    return getNaiTokenInfo()
+  })
   handle('nai:balance', async () => {
     const token = getNaiToken()
     if (!token) return { anlas: null, tier: null }

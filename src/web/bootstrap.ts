@@ -1,14 +1,18 @@
+import type { IpcInvokeMap } from '@shared/types'
 import type { NaisApi } from '../preload/index'
 import { broadcast } from './events'
+import { broadcastRaw } from './bus'
 import { initWorkerRpc, invoke, on, rpcInvoke, webImageUrl } from './backend/ipc'
 import { registerMainHandlers } from './main-handlers'
 import {
   connectDrive,
   disconnectDrive,
   gdriveStatus,
-  isDriveConfigured
+  isDriveConfigured,
+  tryDriveAutoReconnect
 } from './gdrive-controller'
 import { mountGdrivePanel } from './gdrive-panel'
+import { clearMirroredToken, mirrorToken, readMirroredToken } from './token-mirror'
 import { acquireSingleTabLock, showMultiTabNotice } from './single-tab-guard'
 
 /**
@@ -31,9 +35,10 @@ export async function start(): Promise<void> {
 
   registerMainHandlers()
 
-  // Drive 토큰 발급은 사용자 제스처(패널 연결/재연결 버튼)로만 — GIS 팝업은 제스처 없이 차단되므로
-  // 부팅 자동 재연결은 하지 않는다. 워커가 이전 세션 설정으로 프로바이더를 선활성해 큐를 유지하고,
-  // 패널(P6-5)이 "재연결 필요"를 표시한다.
+  // Drive: 이전 세션에서 켰다면 부팅 시 무팝업 재연결을 시도한다(tryDriveAutoReconnect, 렌더러
+  // 마운트 뒤). 무팝업이 막히는 환경(최초 동의 필요/iOS ITP)에서는 조용히 실패해, 워커가 프로바이더를
+  // 선활성해 큐를 유지하고 패널(P6-5)이 "재연결 필요"를 표시하는 기존 흐름으로 남는다. 사용자 제스처가
+  // 필요한 동의 팝업(connectDrive)은 여전히 패널 버튼에서만 뜬다.
 
   // 채널 선언표 ↔ 실제 등록 대조 (가드레일 G1 — DEV 전용, 프로덕션 번들에선 제거)
   if (import.meta.env.DEV) {
@@ -54,7 +59,34 @@ export async function start(): Promise<void> {
     void navigator.storage.persist().catch(() => {})
   }
 
-  const api: NaisApi = { invoke, on, imageUrl: webImageUrl }
+  // NAI 토큰 복원 — OPFS가 축출된 세션에서 DB에 토큰이 없으면 localStorage 미러에서 되살린다.
+  // (미러는 아래 invoke 래퍼가 nai:setToken/deleteToken마다 갱신한다.) 렌더러 마운트 전이라
+  // 토큰 다이얼로그가 곧바로 "설정됨"을 반영한다.
+  {
+    const status = await invoke('nai:tokenStatus', undefined)
+    if (!status.hasToken) {
+      const mirrored = readMirroredToken()
+      if (mirrored) await rpcInvoke('_token:restore', { token: mirrored })
+    }
+  }
+
+  // 렌더러에 노출할 invoke — 토큰 저장/삭제를 localStorage 미러에 반영해 세션 간 지속시킨다.
+  const invokeWithTokenMirror = <C extends keyof IpcInvokeMap>(
+    channel: C,
+    req: IpcInvokeMap[C]['req']
+  ): Promise<IpcInvokeMap[C]['res']> => {
+    const result = invoke(channel, req)
+    if (channel === 'nai:setToken') {
+      void result.then((res) => {
+        if ((res as { valid?: boolean }).valid) mirrorToken((req as { token: string }).token)
+      })
+    } else if (channel === 'nai:deleteToken') {
+      void result.then(() => clearMirroredToken())
+    }
+    return result
+  }
+
+  const api: NaisApi = { invoke: invokeWithTokenMirror, on, imageUrl: webImageUrl }
   ;(window as unknown as { nais: NaisApi }).nais = api
 
   // 이미지 서빙 + 앱 셸 캐시 서비스워커. 실패해도 치명적이진 않다 —
@@ -104,5 +136,12 @@ export async function start(): Promise<void> {
   await import('@renderer/main')
 
   // Drive 플로팅 패널 (웹 전용, 클라이언트 ID 주입된 빌드에서만) — 렌더러 뒤에 마운트
-  if (isDriveConfigured()) mountGdrivePanel()
+  if (isDriveConfigured()) {
+    mountGdrivePanel()
+    // 무팝업 자동 재연결 시도 — 성공하면 패널을 갱신(_gdrive:needToken은 패널의 새로고침 신호로
+    // 재사용)해 "연결됨"으로 반영한다. 실패는 조용히 수동 재연결 상태로 남는다. 부팅은 막지 않는다.
+    void tryDriveAutoReconnect().then((ok) => {
+      if (ok) broadcastRaw('_gdrive:needToken', {})
+    })
+  }
 }
