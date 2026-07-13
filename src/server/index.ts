@@ -18,6 +18,7 @@ import { dispatch, registeredChannels } from './registry'
 import { runGeneration } from './pipeline'
 import { registerWebChannels } from './web-channels'
 import { DATA_DIR } from './shims/electron'
+import { WEB_DIST, handleStaticWeb } from './static-web'
 
 /**
  * NAIS3 셀프호스트 서버 (P0) — "헤드리스 main 프로세스".
@@ -106,6 +107,12 @@ function boot(): void {
       `[server] NAIS3 서버 시작 — ws://${HOST}:${PORT} (채널 ${registeredChannels().length}개)`
     )
     console.log(`[server] 데이터: ${DATA_DIR}`)
+    console.log(`[server] 정적 웹: ${WEB_DIST}`)
+    if (!existsSync(WEB_DIST)) {
+      console.log(
+        '[server] 웹 빌드 없음 — `npm run build:web` 후 재시작하면 프론트를 함께 서빙합니다'
+      )
+    }
     if (!ACCESS_KEY) {
       console.warn(
         '[server] NAIS3_ACCESS_KEY 미설정 — 루프백(127.0.0.1) 전용으로 동작합니다. ' +
@@ -172,8 +179,9 @@ function handleHttp(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
-  // 정적 프론트 서빙은 P1 (혼합 콘텐츠 회피 — 서버가 웹앱도 함께 서빙 예정)
-  res.writeHead(404).end('not found')
+  // 정적 프론트 서빙 (P1-②) — healthz·nais-image 다음 우선순위. 키 없이 서빙한다
+  // (프론트는 공개물 — 이 페이지가 window.__NAIS_SERVED__로 동일 오리진 서버 모드를 켠다).
+  handleStaticWeb(req, res)
 }
 
 boot()
