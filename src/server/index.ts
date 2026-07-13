@@ -67,7 +67,30 @@ function boot(): void {
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req))
   })
 
+  // keepalive — 30초 간격 ping, pong이 없으면 죽은 소켓으로 보고 terminate.
+  // 모바일 소켓이 TCP FIN 없이 사라지면 이벤트 sink에 남아 새기 때문에(브로드캐스트가 죽은
+  // 소켓에 계속 쌓임) 표준 ws 패턴(isAlive 플래그 + interval 1개)으로 정리한다.
+  const KEEPALIVE_MS = 30000
+  const keepalive = setInterval(() => {
+    for (const client of wss.clients) {
+      const c = client as WebSocket & { isAlive?: boolean }
+      if (c.isAlive === false) {
+        c.terminate()
+        continue
+      }
+      c.isAlive = false
+      c.ping()
+    }
+  }, KEEPALIVE_MS)
+  wss.on('close', () => clearInterval(keepalive))
+
   wss.on('connection', (ws: WebSocket) => {
+    const alive = ws as WebSocket & { isAlive?: boolean }
+    alive.isAlive = true
+    ws.on('pong', () => {
+      alive.isAlive = true
+    })
+
     const send = (msg: RpcResult | RpcEvent | RpcReady): void => {
       if (ws.readyState === ws.OPEN) ws.send(encode(msg))
     }

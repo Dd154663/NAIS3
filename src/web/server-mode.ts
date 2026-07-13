@@ -74,6 +74,9 @@ export function resolveServerUrl(): string | null {
   }
 }
 
+/** 재접속 중 상단 배너의 고정 id — 중복 생성 방지 + hideServerNotice()가 조회해 제거 */
+const NOTICE_ID = 'nais-server-notice'
+
 /** 접속 실패/끊김 안내 — 부팅 전 실패는 전체 화면, 이후 끊김은 상단 배너 */
 export function showServerNotice(message: string, fatal: boolean): void {
   if (fatal) {
@@ -97,10 +100,20 @@ export function showServerNotice(message: string, fatal: boolean): void {
     document.body.appendChild(box)
     return
   }
-  const bar = document.createElement('div')
-  bar.style.cssText =
-    'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;' +
-    'font-family:sans-serif;font-size:13px;padding:8px 12px;text-align:center'
-  bar.textContent = `${message} — 새로고침으로 재접속하세요.`
-  document.body.appendChild(bar)
+  // 상태 전환형 배너 — 고정 id로 중복 생성을 막고 문구만 갱신한다(재접속 성공 시 hideServerNotice로 제거).
+  let bar = document.getElementById(NOTICE_ID)
+  if (!bar) {
+    bar = document.createElement('div')
+    bar.id = NOTICE_ID
+    bar.style.cssText =
+      'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;' +
+      'font-family:sans-serif;font-size:13px;padding:8px 12px;text-align:center'
+    document.body.appendChild(bar)
+  }
+  bar.textContent = message
+}
+
+/** 재접속 성공 시 상단 배너 제거 (showServerNotice(_, false)의 짝) */
+export function hideServerNotice(): void {
+  document.getElementById(NOTICE_ID)?.remove()
 }

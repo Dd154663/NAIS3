@@ -14,7 +14,7 @@ import {
 import { mountGdrivePanel } from './gdrive-panel'
 import { clearMirroredToken, mirrorToken, readMirroredToken } from './token-mirror'
 import { acquireSingleTabLock, showMultiTabNotice } from './single-tab-guard'
-import { resolveServerUrl, showServerNotice } from './server-mode'
+import { hideServerNotice, resolveServerUrl, showServerNotice } from './server-mode'
 
 /**
  * 웹 부트스트랩 (P5) — Electron의 preload 역할.
@@ -186,9 +186,14 @@ async function startServerMode(serverUrl: string): Promise<void> {
   const api: NaisApi = { invoke, on, imageUrl: webImageUrl }
   ;(window as unknown as { nais: NaisApi }).nais = api
 
+  // 끊김/재접속 상태를 상단 배너로 반영 — ipc.ts가 자동 재접속(지수 백오프)을 담당하므로
+  // 여기서는 안내만 전환한다. 끊기면 "재접속 중" 배너, 재접속 성공 시 배너 제거.
   const { subscribe } = await import('./bus')
   subscribe('_serverDisconnected', () => {
-    showServerNotice('서버 연결이 끊어졌습니다', false)
+    showServerNotice('서버 연결이 끊어졌습니다 — 자동 재접속 중…', false)
+  })
+  subscribe('_serverReconnected', () => {
+    hideServerNotice()
   })
 
   await import('@renderer/main')
