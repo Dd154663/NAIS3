@@ -63,6 +63,27 @@
       "mirror": [
         "src/server/web-channels.ts (_backup:importJson 경로가 importNais2를 직접 재사용 — nais2 스키마 호환 보장 지점)"
       ]
+    },
+    "src/main/scenes/repo.ts": {
+      "hash": "2a2445599649494500413b6a9889d7af27236a080674d39449001ef335540df2",
+      "mirror": [
+        "src/web/backend/scenes.ts (exportZipData·bulkExportZipData가 zipEntriesForScenes·zipFiles 규칙 미러링)",
+        "src/server/web-channels.ts (_scenes:exportZipData·_scenes:bulkExportZipData가 같은 ZIP 구성 로직 이식)"
+      ]
+    },
+    "src/main/fragments/repo.ts": {
+      "hash": "ebef5e2f8eab117b71d400b8df06b4ca9b5cb5571bf028443c6e442e6c7094c6",
+      "mirror": [
+        "src/web/worker/handlers.ts (_frags:exportAllZip가 exportAllFragmentsZip의 ZIP 구성부 미러링)",
+        "src/server/web-channels.ts (_frags:exportAllZip 동일 이식 — 이름 충돌 -1 접미 규칙 포함)"
+      ]
+    },
+    "src/main/library/repo.ts": {
+      "hash": "6a61b61cf877fe017486f242ba686533459dadbb6427f60e47e31339f0900b2b",
+      "mirror": [
+        "src/web/backend/library.ts (exportZipData가 library:export의 배치 순서·연번 규칙 미러링)",
+        "src/server/web-channels.ts (_library:exportZipData 동일 이식)"
+      ]
     }
   }
 }
