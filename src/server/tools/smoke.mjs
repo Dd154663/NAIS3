@@ -18,6 +18,18 @@ async function smallPng() {
   return new Uint8Array(buf)
 }
 
+/** msgpack bin으로 온 ZIP 바이트인지 — 로컬 파일 헤더 시그니처(PK\x03\x04) 확인 */
+function isZipBytes(bytes) {
+  return (
+    bytes instanceof Uint8Array &&
+    bytes.length > 4 &&
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  )
+}
+
 const base = process.argv[2] ?? 'ws://127.0.0.1:8787'
 const key = process.argv[3] ?? process.env.NAIS3_ACCESS_KEY ?? ''
 const url = key ? `${base}/?key=${encodeURIComponent(key)}` : base
@@ -116,6 +128,14 @@ ws.on('open', async () => {
       fragExp?.content ?? '행 없음'
     )
 
+    // 조각 전체 ZIP — bytes는 msgpack bin(Uint8Array)으로 오고, PK\x03\x04 시그니처면 정상 ZIP
+    const fragZip = await invoke('_frags:exportAllZip', undefined)
+    check(
+      '_frags:exportAllZip',
+      fragZip.count >= 1 && isZipBytes(fragZip.bytes),
+      `조각 ${fragZip.count}개 / ${fragZip.bytes?.length ?? 0}바이트`
+    )
+
     // 백업 내보내기 → 파싱/주요 키 → 재주입
     const backupJson = await invoke('_backup:exportJson', undefined)
     let backup = null
@@ -163,6 +183,28 @@ ws.on('open', async () => {
         scData.scenes[0].name === 's1' &&
         scData.scenes[0].negativePrompt === '',
       scData ? `씬 ${scData.scenes.length}개` : 'parse 실패'
+    )
+
+    // 씬 ZIP — 스모크 DB엔 생성 이미지가 없으므로 "담을 게 없으면 count 0 + bytes null" 계약 확인.
+    // (이름은 프리셋명_타임스탬프 / bulk는 빈 배열이면 빈 이름 — 워커와 동일)
+    const scZip = await invoke('_scenes:exportZipData', { presetId: preset.id })
+    check(
+      '_scenes:exportZipData 형태',
+      scZip.count === 0 && scZip.bytes === null && /^smoke-preset_\d+\.zip$/.test(scZip.name),
+      scZip.name
+    )
+    const scBulkEmpty = await invoke('_scenes:bulkExportZipData', { ids: [] })
+    check(
+      '_scenes:bulkExportZipData 빈 선택',
+      scBulkEmpty.count === 0 && scBulkEmpty.name === '' && scBulkEmpty.bytes === null
+    )
+    const scList = await invoke('scenes:list', { presetId: preset.id })
+    const scIds = (scList.items ?? []).map((s) => s.id)
+    const scBulk = await invoke('_scenes:bulkExportZipData', { ids: scIds })
+    check(
+      '_scenes:bulkExportZipData 왕복',
+      scBulk.count === 0 && scBulk.bytes === null && /^scenes_\d+\.zip$/.test(scBulk.name),
+      `씬 ${scIds.length}개 → ${scBulk.name}`
     )
 
     // _images:readBytes — 루트 밖/없는 경로는 null (nais-image 서빙과 동일 안전 규칙)

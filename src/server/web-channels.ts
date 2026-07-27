@@ -7,6 +7,7 @@ import sharp from 'sharp'
 import { getDb } from '../main/db'
 import { createFragment } from '../main/fragments/repo'
 import { importBase64 } from '../main/library/repo'
+import { getPresetName } from '../main/scenes/repo'
 import { exportAll, importAll } from '../main/backup/repo'
 import { importNais2 } from '../main/backup/nais2'
 import { getMemoryImage, isMemoryPath, isUnderImagesRoot } from '../main/images/storage'
@@ -29,6 +30,78 @@ function refsDir(): string {
 /** Buffer → 소유권 있는 Uint8Array (msgpack이 그대로 나른다) */
 function toBytes(buf: Buffer): Uint8Array {
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).slice()
+}
+
+/** ZIP 응답 계약 — 워커(src/web/backend/scenes.ts ZipData)와 동일. count=0이면 bytes는 null */
+interface ZipData {
+  count: number
+  name: string
+  bytes: Uint8Array | null
+}
+
+type ZipEntry = { filePath: string; name: string }
+
+/**
+ * 씬 이미지 1장 읽기 — 실 파일 또는 memory:// 마커.
+ * 씬 생성은 자동저장 OFF에서도 항상 파일로 남으므로(images/storage.ts 주석) 실질 경로는 fs지만,
+ * 워커(readImageBytes)가 두 경우를 모두 받으니 방어적으로 맞춘다. 없으면 null → 엔트리 생략.
+ */
+function readSceneImage(filePath: string): Buffer | null {
+  if (isMemoryPath(filePath)) return getMemoryImage(filePath)
+  return existsSync(filePath) ? readFileSync(filePath) : null
+}
+
+/**
+ * 씬별 내보낼 이미지 선정 + 이름 — 원본 scenes/repo.ts zipEntriesForScenes(private)와 동일 규칙:
+ * 즐겨찾기가 있으면 전부, 없으면 최신 1장. 한 씬에서 여러 장일 때만 _1, _2 접미.
+ */
+function zipEntriesForScenes(sceneIds: number[]): ZipEntry[] {
+  const db = getDb()
+  const entries: ZipEntry[] = []
+  for (const sceneId of sceneIds) {
+    const scene = db.prepare('SELECT name FROM gen_scenes WHERE id = ?').get(sceneId) as
+      { name: string } | undefined
+    if (!scene) continue
+    const favorites = db
+      .prepare('SELECT file_path FROM images WHERE scene_id = ? AND favorite = 1 ORDER BY id DESC')
+      .all(sceneId) as { file_path: string }[]
+    const picks =
+      favorites.length > 0
+        ? favorites
+        : (db
+            .prepare('SELECT file_path FROM images WHERE scene_id = ? ORDER BY id DESC LIMIT 1')
+            .all(sceneId) as { file_path: string }[])
+    const safe = scene.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `씬-${sceneId}`
+    picks.forEach((p, i) => {
+      const suffix = picks.length > 1 ? `_${i + 1}` : ''
+      entries.push({
+        filePath: p.file_path,
+        name: `${safe}${suffix}${extname(p.file_path) || '.png'}`
+      })
+    })
+  }
+  return entries
+}
+
+/** 엔트리 → ZIP 바이트 (원본 zipFiles의 동명 폴백·"파일 없으면 건너뜀"까지 동일, 저장만 응답으로) */
+async function zipScenes(entries: ZipEntry[], defaultName: string): Promise<ZipData> {
+  if (entries.length === 0) return { count: 0, name: defaultName, bytes: null }
+  const zip = new JSZip()
+  const used = new Set<string>()
+  for (const e of entries) {
+    const buf = readSceneImage(e.filePath)
+    if (!buf) continue // 원본 없음/만료 — 데스크톱과 동일하게 건너뜀
+    let name = e.name
+    while (used.has(name)) name = `_${name}` // 동명 씬 충돌 폴백
+    used.add(name)
+    zip.file(name, buf)
+  }
+  if (used.size === 0) return { count: 0, name: defaultName, bytes: null }
+  return {
+    count: used.size,
+    name: defaultName,
+    bytes: toBytes(await zip.generateAsync({ type: 'nodebuffer' }))
+  }
 }
 
 export function registerWebChannels(): void {
@@ -135,6 +208,24 @@ export function registerWebChannels(): void {
     return row ?? null
   })
 
+  // ── 조각 전체 ZIP — 원본 exportAllFragmentsZip의 ZIP 구성만 이식(파일 저장 → 응답 바이트).
+  //    이름 충돌 시 `-1` 접미는 원본 규칙 그대로라 count와 실제 엔트리 수가 어긋나지 않는다 ──
+  register('_frags:exportAllZip', async () => {
+    const rows = getDb()
+      .prepare('SELECT name, content FROM fragments ORDER BY sort_order, id')
+      .all() as { name: string; content: string }[]
+    if (rows.length === 0) return { count: 0, bytes: null }
+    const zip = new JSZip()
+    const used = new Map<string, number>()
+    for (const r of rows) {
+      const safe = r.name.replace(/[/\\:*?"<>|]/g, '_') || 'fragment'
+      const n = used.get(safe) ?? 0
+      used.set(safe, n + 1)
+      zip.file(`${n > 0 ? `${safe}-${n}` : safe}.txt`, r.content)
+    }
+    return { count: rows.length, bytes: toBytes(await zip.generateAsync({ type: 'nodebuffer' })) }
+  })
+
   // ── 씬 JSON 내보내기/가져오기 — 순수 SQL (워커 backend/scenes.ts와 동일 스키마) ──
   register('_scenes:exportJsonData', (_e, req) => {
     const { presetId } = req as { presetId: number }
@@ -195,6 +286,25 @@ export function registerWebChannels(): void {
       }
     })()
     return { count: scenes.length }
+  })
+
+  // ── 씬 ZIP 내보내기 — 원본 exportZip/bulkExportZip에서 저장 다이얼로그만 걷어낸 형태.
+  //    파일명(프리셋명_타임스탬프 / scenes_타임스탬프)까지 워커와 동일해야 다운로드 이름이 맞는다 ──
+  register('_scenes:exportZipData', async (_e, req) => {
+    const { presetId } = req as { presetId: number }
+    const sceneIds = (
+      getDb()
+        .prepare('SELECT id FROM gen_scenes WHERE preset_id = ? ORDER BY sort_order, id')
+        .all(presetId) as { id: number }[]
+    ).map((r) => r.id)
+    const presetName = (getPresetName(presetId) ?? '씬').replace(/[/\\:*?"<>|]/g, '_')
+    return zipScenes(zipEntriesForScenes(sceneIds), `${presetName}_${Date.now()}.zip`)
+  })
+
+  register('_scenes:bulkExportZipData', async (_e, req) => {
+    const { ids } = req as { ids: number[] }
+    if (ids.length === 0) return { count: 0, name: '', bytes: null }
+    return zipScenes(zipEntriesForScenes(ids), `scenes_${Date.now()}.zip`)
   })
 
   // ── 백업 내보내기/가져오기 — 원본 backup/repo.ts 재사용 (서버는 실 fs라 웹과 달리 원본 그대로 안전).

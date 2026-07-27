@@ -53,7 +53,7 @@ jobs:
       - name: 네이티브 모듈 리빌드 (better-sqlite3)
         run: npm rebuild better-sqlite3
 
-      # 실서버를 백그라운드로 띄우고 /healthz 대기 후 스모크(139채널·큐·백업 왕복)를 호출한다.
+      # 실서버를 백그라운드로 띄우고 /healthz 대기 후 스모크(150채널·큐·백업·ZIP 왕복)를 호출한다.
       - name: 서버 스모크 (실서버 WS 왕복 회귀망)
         env:
           NAIS3_DATA_DIR: ${{ runner.temp }}/nais3-data-ci
