@@ -20,7 +20,11 @@ npm run preview:web   # 빌드 결과 미리보기
 ```
 src/web/
   main.ts          진입점 — Buffer 폴리필 후 부트스트랩 동적 import
-  bootstrap.ts     워커 부팅(ready 대기) → 메인 핸들러 → window.nais 주입 → SW → 렌더러
+  bootstrap.ts     전송 선택 → 워커 부팅(ready 대기) → 메인 핸들러 → window.nais → SW → 렌더러
+  transport/       백엔드에 닿는 전송 계층 (서버 결합 코드의 경계)
+    worker.ts      로컬 모드 — 워커 생성 + postMessage RPC 부착
+    server.ts      서버 모드 — 접속 정보 해석(?server=·동일 오리진), WS+msgpack 전송과
+                   자동 재접속, 접속 실패/끊김 배너, 서버 모드 부팅 절차
   bus.ts / rpc.ts  채널 핸들러·이벤트 레지스트리 + 메인↔워커 RPC 메시지 타입
   channel-coverage.ts  채널→처리 위치 선언표 (유지보수 가드레일 — 아래 "유지보수 계약")
   main-handlers.ts DOM 결합 채널만 (picker/다운로드/클립보드/알림/창 no-op)
@@ -29,7 +33,8 @@ src/web/
     boot.ts        DB 초기화 → 큐 → 핸들러 등록 → ready
     handlers.ts    워커 채널 핸들러 (src/main/ipc.ts의 웹 대응)
   backend/
-    ipc.ts         메인 invoke 라우터 (로컬 핸들러 or 워커 RPC) + 이벤트 브릿지
+    ipc.ts         메인 invoke 라우터 (로컬 핸들러 or 백엔드 RPC) + 이벤트 브릿지 —
+                   전송 무관 공통부만 (transport/*가 setTransport로 자신을 꽂는다)
     db/index.ts    공식 SQLite WASM(opfs-sahpool) 어댑터 — better-sqlite3 사용 표면을
                    흉내내 repo 재사용. OPFS라 페이지 단위 쓰기 (쓰기 증폭 없음)
     db/settings.ts 설정/토큰 저장 (safeStorage 없음 — 아래 한계 참조)

@@ -2,7 +2,7 @@ import type { IpcInvokeMap } from '@shared/types'
 import type { NaisApi } from '../preload/index'
 import { broadcast } from './events'
 import { broadcastRaw } from './bus'
-import { initServerRpc, initWorkerRpc, invoke, on, rpcInvoke, webImageUrl } from './backend/ipc'
+import { invoke, on, rpcInvoke, webImageUrl } from './backend/ipc'
 import { registerMainHandlers } from './main-handlers'
 import {
   connectDrive,
@@ -14,13 +14,17 @@ import {
 import { mountGdrivePanel } from './gdrive-panel'
 import { clearMirroredToken, mirrorToken, readMirroredToken } from './token-mirror'
 import { acquireSingleTabLock, showMultiTabNotice } from './single-tab-guard'
-import { hideServerNotice, resolveServerUrl, showServerNotice } from './server-mode'
+import { resolveServerUrl, startServerMode } from './transport/server'
+import { startWorkerTransport } from './transport/worker'
 
 /**
  * 웹 부트스트랩 (P5) — Electron의 preload 역할.
  * 백엔드(DB·큐·NAI)는 워커(src/web/worker)가 Electron main 프로세스처럼 담당하고,
  * 메인 스레드는 DOM IO 핸들러와 RPC 중계, window.nais 주입만 한다.
- * 순서: 워커 부팅(ready 대기) → 메인 핸들러 → window.nais → SW → 렌더러.
+ * 순서: 전송 선택 → 워커 부팅(ready 대기) → 메인 핸들러 → window.nais → SW → 렌더러.
+ *
+ * 전송(백엔드에 닿는 경로)은 src/web/transport/* 로 분리돼 있다 — 여기서는 둘 중 하나를
+ * 고르기만 하고, 서버 모드의 부팅 절차 자체도 transport/server.ts가 갖는다.
  */
 export async function start(): Promise<void> {
   // 서버 모드 (P0 전송 스위치) — 셀프호스트 서버가 백엔드면 워커·OPFS를 아예 만들지 않는다.
@@ -35,9 +39,8 @@ export async function start(): Promise<void> {
     return
   }
 
-  const worker = new Worker(new URL('./worker/index.ts', import.meta.url), { type: 'module' })
-  // ready 핸드셰이크 (DB 초기화·마이그레이션 완료 보장)
-  const ready = await initWorkerRpc(worker)
+  // 워커 전송 부착 + ready 핸드셰이크 (DB 초기화·마이그레이션 완료 보장)
+  const ready = await startWorkerTransport()
 
   registerMainHandlers()
 
@@ -149,55 +152,4 @@ export async function start(): Promise<void> {
       if (ok) broadcastRaw('_gdrive:needToken', {})
     })
   }
-}
-
-/**
- * 서버 모드 부팅 — 백엔드가 셀프호스트 서버라 로컬 전용 장치가 전부 불필요/무의미하다:
- * 단일 탭 가드(OPFS 없음 — 다중 탭 허용), 토큰 미러(토큰은 서버 DB 상주), storage.persist,
- * Drive 패널(서버 저장이 곧 클라우드 저장), 서비스워커(이미지는 서버가 직접 서빙).
- * P0 공백(서버 미구현 웹 내부 채널): _backup/_refs/_frags/_scenes/_library/_images:readBytes —
- * 해당 가져오기/내보내기 흐름은 호출 시 명확한 에러로 드러난다. P1에서 서버에 이식.
- */
-async function startServerMode(serverUrl: string): Promise<void> {
-  let ready: { dbVersion: number; channels: string[] }
-  try {
-    ready = await initServerRpc(serverUrl)
-  } catch (e) {
-    showServerNotice(e instanceof Error ? e.message : String(e), true)
-    return
-  }
-
-  registerMainHandlers()
-
-  // 채널 선언표 ↔ 서버 등록 대조 (가드레일 G1) — 서버는 데스크톱 등록표 전체를 재사용하므로
-  // 전량 커버가 기대값이다
-  if (import.meta.env.DEV) {
-    const { verifyChannelCoverage } = await import('./channel-coverage')
-    const { hasHandler } = await import('./bus')
-    verifyChannelCoverage(ready.channels, hasHandler)
-  }
-
-  // 웹검색 모드 기본 숨김 — 로컬 모드와 동일 (Electron <webview> 전용 기능)
-  const hidden = await invoke('settings:get', { key: 'ui_hidden_pages' })
-  if (hidden.value === null) {
-    await invoke('settings:set', { key: 'ui_hidden_pages', value: JSON.stringify(['websearch']) })
-  }
-
-  const api: NaisApi = { invoke, on, imageUrl: webImageUrl }
-  ;(window as unknown as { nais: NaisApi }).nais = api
-
-  // 끊김/재접속 상태를 상단 배너로 반영 — ipc.ts가 자동 재접속(지수 백오프)을 담당하므로
-  // 여기서는 안내만 전환한다. 끊기면 "재접속 중" 배너, 재접속 성공 시 배너 제거.
-  const { subscribe } = await import('./bus')
-  subscribe('_serverDisconnected', () => {
-    showServerNotice('서버 연결이 끊어졌습니다 — 자동 재접속 중…', false)
-  })
-  subscribe('_serverReconnected', () => {
-    hideServerNotice()
-  })
-
-  await import('@renderer/main')
-  console.log(
-    `[web] 서버 모드 — ${serverUrl.replace(/key=[^&]*/, 'key=***')} (채널 ${ready.channels.length}개, DB v${ready.dbVersion})`
-  )
 }

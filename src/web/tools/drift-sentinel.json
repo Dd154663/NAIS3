@@ -13,6 +13,7 @@
       "hash": "68efb16f6578683049d089fd1d73c01e500efc2d5af09a7c77ac78867bcdc7e1",
       "mirror": [
         "src/web/bootstrap.ts",
+        "src/web/transport/server.ts (서버 모드 부팅 절차 — 로컬 모드와 짝을 이루는 부팅 순서)",
         "src/web/backend/pipeline.ts",
         "src/server/pipeline.ts (GenerationQueue 콜백=생성 파이프라인을 이식한 사본)",
         "src/server/index.ts (nais-image 프로토콜을 HTTP로 이식)"
