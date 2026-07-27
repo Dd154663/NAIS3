@@ -2,7 +2,7 @@
   "$comment": "그림자 파일 드리프트 센티널 — drift-check.mjs가 검증. 원작(src/main) 파일이 바뀌면 mirror에 적힌 포트 구현(웹 src/web · 서버 src/server)을 검토한 뒤 `npm run check:web-drift:update`로 해시를 갱신한다. 해시는 CRLF→LF 정규화 후 sha256. mirror의 src/server 항목은 셀프호스트 서버가 원본에 의존하는 지점이다.",
   "watch": {
     "src/main/ipc.ts": {
-      "hash": "60084538705392ddb96f8f8896de6438f78b31dc043e162f29748c6789d03534",
+      "hash": "ed0414126cd9b581126f94068903fee537d9b2274fb9618560112034e561d4bf",
       "mirror": [
         "src/web/worker/handlers.ts",
         "src/web/main-handlers.ts",
@@ -10,7 +10,7 @@
       ]
     },
     "src/main/index.ts": {
-      "hash": "b5c48ab19ec7abdffe6dc7c6bc22dc9489528696c82a176ad55ad3b4d4e80ed0",
+      "hash": "68efb16f6578683049d089fd1d73c01e500efc2d5af09a7c77ac78867bcdc7e1",
       "mirror": [
         "src/web/bootstrap.ts",
         "src/web/backend/pipeline.ts",
@@ -40,13 +40,13 @@
       ]
     },
     "src/main/refs/prepare.ts": {
-      "hash": "952593aa5be3f5147aec6abc01395dd02739e6e43fba31347395e346bee7091c",
+      "hash": "21a9ce9c2c83dd2a7a75ddda7632bc3b103b455c000ae96630e40e9811982360",
       "mirror": [
         "src/web/backend/refs.ts"
       ]
     },
     "src/main/refs/repo.ts": {
-      "hash": "2116f29abdafdd7e2f943ebf1be42a5599aef4bcd21e50a4ce0c62e4e98e2e67",
+      "hash": "bc431adc8b624fa312e1bb16d25a89923f3bbd7a90399a9c730b0d4a8c1b4e1c",
       "mirror": [
         "src/server/web-channels.ts (_refs:addFiles가 addRefImages의 파일 결합 로직을 미러링)"
       ]
