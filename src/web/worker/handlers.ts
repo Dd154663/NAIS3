@@ -77,17 +77,27 @@ import {
   renamePreset,
   reorderPresets,
   reorderScenes,
+  reservedTotal,
   sceneImages,
+  setPresetCharacters,
   setPresetDefaultResolution,
   setReserveAll,
+  setSceneReserves,
   updateScene
 } from '@main/scenes/repo'
+import { analyzeArtists } from '@main/images/artists'
 import { metadataFromPayloadJson, metadataFromPng } from '@main/images/metadata'
 import { importNais2 } from '@main/backup/nais2'
 import { handleRaw } from '../bus'
 import { broadcast } from '../events'
-import { addRefFiles, deleteRefImageWeb } from '../backend/refs'
-import { deleteImagesWeb, importBase64Web, importFilesWeb, importPathsWeb } from '../backend/library'
+import { addRefFiles, deleteRefImageWeb, duplicateRefImageWeb } from '../backend/refs'
+import {
+  deleteImagesWeb,
+  exportZipData as libraryExportZipData,
+  importBase64Web,
+  importFilesWeb,
+  importPathsWeb
+} from '../backend/library'
 import {
   bulkClearImagesWeb,
   bulkExportZipData,
@@ -323,6 +333,28 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
     }
   })
 
+  // 작가 태그 분석 — 원본 @main/images/artists 재사용. HF Space 호출뿐이라 순수 네트워크고,
+  // @gradio/client는 브라우저 조건부 빌드(dist/browser.js)를 동적 import하므로 워커에서 그대로
+  // 돈다 (nai/client.ts를 워커에서 재사용하는 것과 같은 이유). 경로 검사만 웹 규칙으로 대체.
+  handle('images:analyzeArtists', async ({ filePath, base64 }) => {
+    try {
+      let buf: Buffer | null = null
+      if (base64) {
+        buf = Buffer.from(base64.replace(/^data:[^,]+,/, ''), 'base64')
+      } else if (filePath) {
+        if (!isWebPath(filePath)) return { error: '허용되지 않은 경로' }
+        buf = await readImageBytes(filePath)
+        if (!buf) return { error: '원본이 만료되었습니다 (자동저장 꺼짐 상태로 생성된 이미지)' }
+      }
+      if (!buf) return { error: '입력이 없습니다' }
+      const tags = await analyzeArtists(buf)
+      if (tags.length === 0) return { error: '작가 태그를 찾지 못했습니다' }
+      return { tags }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
   // ── 설정 ─────────────────────────────────────────────────
   handle('settings:get', ({ key }) => ({ value: getSetting(key) }))
   handle('settings:set', ({ key, value }) => {
@@ -448,6 +480,7 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
   handle('vibes:delete', async ({ id }) => {
     await deleteRefImageWeb('vibe', id)
   })
+  handle('vibes:duplicate', async ({ id }) => ({ id: await duplicateRefImageWeb('vibe', id) }))
   handle('vibes:reorder', ({ order }) => {
     reorderRefs('vibe', order)
   })
@@ -472,6 +505,7 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
   handle('crefs:delete', async ({ id }) => {
     await deleteRefImageWeb('charref', id)
   })
+  handle('crefs:duplicate', async ({ id }) => ({ id: await duplicateRefImageWeb('charref', id) }))
   handle('crefs:reorder', ({ order }) => {
     reorderRefs('charref', order)
   })
@@ -529,6 +563,11 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
     }
     return { count: await importFilesWeb(files, stackId) }
   })
+  // library:export의 데이터 소스 — 폴더 복사 대신 연번 ZIP (다운로드는 메인)
+  handleRaw('_library:exportZipData', (req) => {
+    const { ids } = req as { ids: number[] }
+    return libraryExportZipData(ids)
+  })
 
   // ── 씬 ────────────────────────────────────────────────────
   handle('scenePresets:list', () => ({ items: listPresets() }))
@@ -541,6 +580,9 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
   })
   handle('scenePresets:reorder', ({ ids }) => {
     reorderPresets(ids)
+  })
+  handle('scenePresets:setCharacters', ({ id, characterIds }) => {
+    setPresetCharacters(id, characterIds)
   })
   handle('scenePresets:setDefaultResolution', ({ id, width, height }) => {
     setPresetDefaultResolution(id, width, height)
@@ -561,9 +603,13 @@ export function registerWorkerHandlers(ctx: { dbVersion: number; queue: Generati
   handle('scenes:setReserveAll', ({ presetId, count }) => {
     setReserveAll(presetId, count)
   })
-  handle('scenes:adjustReserveAll', ({ presetId, delta }) => {
-    adjustReserveAll(presetId, delta)
+  handle('scenes:adjustReserveAll', ({ presetId, castId, delta }) => {
+    adjustReserveAll(presetId, castId, delta)
   })
+  handle('scenes:setReserves', ({ id, reserves }) => {
+    setSceneReserves(id, reserves)
+  })
+  handle('scenes:reservedTotal', () => ({ total: reservedTotal() }))
   handle('scenes:bulkMove', ({ ids, presetId }) => {
     bulkMove(ids, presetId)
   })

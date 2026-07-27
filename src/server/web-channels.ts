@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import { app } from 'electron'
+import JSZip from 'jszip'
 import sharp from 'sharp'
 import { getDb } from '../main/db'
 import { createFragment } from '../main/fragments/repo'
@@ -91,6 +92,32 @@ export function registerWebChannels(): void {
       base64: Buffer.from(f.bytes).toString('base64')
     }))
     return { count: await importBase64(images, stackId) }
+  })
+
+  // ── 라이브러리 일괄 내보내기 — 클라이언트가 폴더 대신 ZIP을 받는다(웹 워커와 동일 계약).
+  //    연번/배치 순서 규칙은 원본 exportImages와 동일하되 복사 대상이 ZIP 엔트리다 ──
+  register('_library:exportZipData', async (_e, req) => {
+    const { ids } = req as { ids: number[] }
+    const name = `library_${Date.now()}.zip`
+    if (ids.length === 0) return { count: 0, name, bytes: null }
+    const q = ids.map(() => '?').join(',')
+    const rows = getDb()
+      .prepare(
+        `SELECT file_path FROM library_images WHERE id IN (${q}) ORDER BY sort_order DESC, id DESC`
+      )
+      .all(...ids) as { file_path: string }[]
+
+    const pad = Math.max(3, String(rows.length).length)
+    const zip = new JSZip()
+    let count = 0
+    for (const r of rows) {
+      if (!existsSync(r.file_path)) continue // 원본 없음 — 데스크톱과 동일하게 건너뜀
+      const ext = extname(r.file_path) || '.png'
+      zip.file(`${String(count + 1).padStart(pad, '0')}${ext}`, readFileSync(r.file_path))
+      count++
+    }
+    if (count === 0) return { count: 0, name, bytes: null }
+    return { count, name, bytes: toBytes(await zip.generateAsync({ type: 'nodebuffer' })) }
   })
 
   // ── 조각 txt 가져오기 — 원본 createFragment 재사용 ──

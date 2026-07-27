@@ -1,6 +1,12 @@
 import type { CharacterReferenceOptions, VibeOptions } from '@main/nai/payload'
 import { ENDPOINTS } from '@main/nai/endpoints'
-import { enabledCharRefRows, enabledVibeRows, saveVibeEncoding } from '@main/refs/repo'
+import {
+  charRefRowsByIds,
+  enabledCharRefRows,
+  enabledVibeRows,
+  saveVibeEncoding,
+  vibeRowsByIds
+} from '@main/refs/repo'
 import { randomUUID } from '../shims/crypto'
 import { getDb } from './db'
 import { makeCoverThumbnail, resizeContainPng } from './image-utils'
@@ -17,9 +23,11 @@ import { idbPut } from './idb'
 const REFS_PREFIX = 'web://refs/'
 
 export async function prepareVibes(
-  token: string
+  token: string,
+  ids?: number[]
 ): Promise<{ vibes: VibeOptions[]; newlyEncoded: number[] }> {
-  const rows = enabledVibeRows()
+  // ids 지정 시 그 바이브들(enabled 무시 — 출연 예약), 미지정 시 enabled 항목
+  const rows = ids ? vibeRowsByIds(ids) : enabledVibeRows()
   const vibes: VibeOptions[] = []
   const newlyEncoded: number[] = []
   for (const row of rows) {
@@ -62,8 +70,9 @@ async function processCharRefImage(filePath: string): Promise<string> {
   return png.toString('base64')
 }
 
-export async function prepareCharRefs(): Promise<CharacterReferenceOptions[]> {
-  const rows = enabledCharRefRows()
+export async function prepareCharRefs(ids?: number[]): Promise<CharacterReferenceOptions[]> {
+  // ids 지정 시 그 캐릭레퍼들(enabled 무시 — 출연 예약), 미지정 시 enabled 항목
+  const rows = ids ? charRefRowsByIds(ids) : enabledCharRefRows()
   const result: CharacterReferenceOptions[] = []
   for (const row of rows) {
     result.push({
@@ -112,6 +121,50 @@ export async function addRefFiles(
     ).run(name, dest, thumbnail, folderId, ++order)
   }
   return files.length
+}
+
+function mimeOfExt(ext: string): string {
+  const e = ext.toLowerCase()
+  if (e === '.webp') return 'image/webp'
+  if (e === '.jpg' || e === '.jpeg') return 'image/jpeg'
+  return 'image/png'
+}
+
+/**
+ * 복제 — 데스크톱 duplicateRefImage 대응. 모든 컬럼 복사(바이브 인코딩 캐시 포함 —
+ * 2 Anlas 재소모 방지)에 sort_order만 맨 뒤로. 삭제가 blob까지 지우므로 원본 blob도
+ * 새 web://refs/ 경로로 복사한다 (경로를 공유하면 한쪽 삭제가 다른 쪽을 깨뜨린다).
+ */
+export async function duplicateRefImageWeb(kind: 'vibe' | 'charref', id: number): Promise<number> {
+  const db = getDb()
+  const table = TABLES[kind]
+  const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id) as
+    Record<string, unknown> | undefined
+  if (!row) return 0
+
+  const src = typeof row.file_path === 'string' ? row.file_path : ''
+  const buf = src ? await readImageBytes(src) : null
+  if (buf) {
+    const base = src.split('/').pop() ?? ''
+    const dot = base.lastIndexOf('.')
+    const ext = dot > 0 ? base.slice(dot) : '.png'
+    const dest = `${REFS_PREFIX}${randomUUID()}${ext}`
+    await idbPut('files', dest, {
+      bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).slice(),
+      mime: mimeOfExt(ext)
+    })
+    row.file_path = dest
+  }
+
+  const max = db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM ${table}`).get() as {
+    m: number
+  }
+  row.sort_order = max.m + 1
+  const cols = Object.keys(row).filter((k) => k !== 'id' && k !== 'created_at')
+  const info = db
+    .prepare(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+    .run(...cols.map((k) => row[k]))
+  return Number(info.lastInsertRowid)
 }
 
 /** 삭제 — 행 + web://refs/ 원본 blob (데스크톱의 refsDir 내부 파일 삭제와 동일 의미) */

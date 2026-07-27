@@ -141,6 +141,17 @@ export function registerMainHandlers(): void {
     )
   }))
 
+  // 데스크톱은 폴더를 골라 001, 002… 연번으로 복사하지만 웹엔 폴더 쓰기가 없다 —
+  // 같은 연번 규칙을 담은 ZIP 다운로드로 대체 (렌더러는 count만 쓰므로 UX 그대로)
+  handle('library:export', async ({ ids }) => ({
+    count: downloadZip(
+      await rpcInvoke<{ count: number; name: string; bytes: Uint8Array | null }>(
+        '_library:exportZipData',
+        { ids }
+      )
+    )
+  }))
+
   handle('images:saveAs', async ({ filePath }) => {
     const bytes = await rpcInvoke<Uint8Array | null>('_images:readBytes', { filePath })
     if (!bytes) return { saved: false }

@@ -3,6 +3,7 @@ import { getDb } from './db'
 import { idbPut } from './idb'
 import { imageSize, makeThumbnail } from './image-utils'
 import { deleteFileBytes, readImageBytes } from './images/storage'
+import type { ZipData } from './scenes'
 
 /**
  * 라이브러리 웹 구현 — src/main/library/repo.ts의 파일 결합 부분 대응.
@@ -76,6 +77,41 @@ export async function importBase64Web(
     await insertImageWeb(buf, name, ext, stackId)
   }
   return images.length
+}
+
+/**
+ * 선택 이미지 일괄 내보내기 데이터 — 데스크톱 exportImages 대응.
+ * 데스크톱은 폴더를 골라 001, 002… 연번으로 복사하지만 웹은 폴더 쓰기 개념이 없어
+ * 같은 연번 규칙을 그대로 담은 ZIP 하나로 대체한다 (다운로드는 메인 스레드가 담당 —
+ * scenes:exportZip 등 기존 내보내기 채널과 동일한 패턴). 배치 순서·연번 규칙은 원본과 동일.
+ */
+export async function exportZipData(ids: number[]): Promise<ZipData> {
+  const name = `library_${Date.now()}.zip`
+  if (ids.length === 0) return { count: 0, name, bytes: null }
+  const q = ids.map(() => '?').join(',')
+  const rows = getDb()
+    .prepare(
+      `SELECT file_path FROM library_images WHERE id IN (${q}) ORDER BY sort_order DESC, id DESC`
+    )
+    .all(...ids) as { file_path: string }[]
+
+  const pad = Math.max(3, String(rows.length).length)
+  const { default: JSZip } = await import('jszip')
+  const zip = new JSZip()
+  let count = 0
+  for (const r of rows) {
+    const buf = await readImageBytes(r.file_path)
+    if (!buf) continue // 원본 없음 — 데스크톱의 "파일 없으면 건너뜀"과 동일
+    const { ext } = splitName(r.file_path.split('/').pop() ?? '')
+    zip.file(
+      `${String(count + 1).padStart(pad, '0')}${ext || '.png'}`,
+      new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).slice()
+    )
+    count++
+  }
+  if (count === 0) return { count: 0, name, bytes: null }
+  const blob = await zip.generateAsync({ type: 'blob' })
+  return { count, name, bytes: new Uint8Array(await blob.arrayBuffer()) }
 }
 
 /** 삭제 — 행 + 복사본 blob (라이브러리 파일은 항상 우리가 만든 복사본) */

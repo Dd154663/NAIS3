@@ -41,6 +41,7 @@ export const CHANNEL_OWNER = {
   'images:saveLocal': 'worker',
   'images:upscale': 'worker',
   'images:readMetadata': 'worker',
+  'images:analyzeArtists': 'worker', // HF Space 호출뿐 — @gradio/client 브라우저 빌드 재사용
   'director:run': 'worker',
   'images:showInFolder': 'main', // 웹은 no-op (탐색기 없음)
   'images:saveAs': 'main', // 다운로드 (바이트는 _images:readBytes로 워커에서)
@@ -95,6 +96,7 @@ export const CHANNEL_OWNER = {
   'scenePresets:rename': 'worker',
   'scenePresets:delete': 'worker',
   'scenePresets:reorder': 'worker',
+  'scenePresets:setCharacters': 'worker',
   'scenePresets:setDefaultResolution': 'worker',
 
   'promptPresets:list': 'worker',
@@ -115,6 +117,8 @@ export const CHANNEL_OWNER = {
   'scenes:reorder': 'worker',
   'scenes:setReserveAll': 'worker',
   'scenes:adjustReserveAll': 'worker',
+  'scenes:setReserves': 'worker',
+  'scenes:reservedTotal': 'worker',
   'scenes:bulkMove': 'worker',
   'scenes:bulkDelete': 'worker',
   'scenes:bulkSetResolution': 'worker',
@@ -132,6 +136,7 @@ export const CHANNEL_OWNER = {
   'vibes:add': 'main', // 파일 picker
   'vibes:update': 'worker',
   'vibes:delete': 'worker',
+  'vibes:duplicate': 'worker',
   'vibes:reorder': 'worker',
   'vibes:folderCreate': 'worker',
   'vibes:folderRename': 'worker',
@@ -143,6 +148,7 @@ export const CHANNEL_OWNER = {
   'crefs:add': 'main', // 파일 picker
   'crefs:update': 'worker',
   'crefs:delete': 'worker',
+  'crefs:duplicate': 'worker',
   'crefs:reorder': 'worker',
   'crefs:folderCreate': 'worker',
   'crefs:folderRename': 'worker',
@@ -159,7 +165,8 @@ export const CHANNEL_OWNER = {
   'library:stackCreate': 'worker',
   'library:stackRename': 'worker',
   'library:stackDelete': 'worker',
-  'library:stackSet': 'worker'
+  'library:stackSet': 'worker',
+  'library:export': 'main' // 폴더 복사 → 연번 ZIP 다운로드 (데이터는 _library:exportZipData)
 } as const satisfies Record<keyof IpcInvokeMap, ChannelOwner>
 
 /**
