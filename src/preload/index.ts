@@ -23,6 +23,12 @@ const api = {
   }
 }
 
-export type NaisApi = typeof api
+export type NaisApi = typeof api & {
+  /**
+   * 플랫폼별 이미지 표시 URL 재정의 (선택). Electron은 미제공 — 렌더러가 nais-image://로
+   * 폴백한다. 웹(모바일) 빌드는 서비스워커 경로를 제공한다 (src/web).
+   */
+  imageUrl?: (filePath: string) => string
+}
 
 contextBridge.exposeInMainWorld('nais', api)
