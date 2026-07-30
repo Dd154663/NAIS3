@@ -6,6 +6,7 @@ import { PreviewPane } from '../components/preview-pane'
 import { SceneMode } from '../components/scene-mode'
 import { WebSearchMode } from '../components/web-search-mode'
 import { useLayoutStore } from '../stores/layout-store'
+import { cn } from '../lib/utils'
 import { GenBar } from './gen-bar'
 import { HistoryDrawer } from './history-drawer'
 import { PromptSheet, type SheetSnap } from './prompt-sheet'
@@ -31,8 +32,14 @@ export function MobileShell(): React.JSX.Element {
       {/* 드로어 위치 기준 컨테이너 — 상단 바 아래 ~ 생성 바 위. 생성 바는 이 밖이라
           드로어·딤이 절대 덮지 못하고(항상 최상단), 히스토리 버튼 재탭 닫힘이 성립한다 */}
       <div className="relative flex min-h-0 flex-1 flex-col">
-        {/* 중앙 콘텐츠 — 시트가 full까지 열리면 높이가 0에 가까워지므로 넘침을 잘라 준다 */}
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-2">
+        {/* 중앙 콘텐츠 — 시트가 full까지 열리면 높이가 0으로 줄어들므로 넘침을 잘라 주고,
+            하단 패딩도 제거해 시트가 상단 바에 정확히 닿게 한다 */}
+        <div
+          className={cn(
+            'relative flex min-h-0 flex-1 flex-col overflow-hidden px-2',
+            isMain && snap === 'full' ? 'pb-0' : 'pb-2'
+          )}
+        >
           {centerMode === 'scene' ? (
             <SceneMode />
           ) : centerMode === 'director' ? (

@@ -33,8 +33,18 @@ import { cn } from '../lib/utils'
 
 const TOKEN_LIMIT = 512
 
-/** embedded: 모바일 시트 등 다른 컨테이너에 담길 때 — 외곽 장식과 생성 행을 컨테이너에 맡긴다 */
-export function PromptPanel({ embedded = false }: { embedded?: boolean }): React.JSX.Element {
+/**
+ * embedded: 모바일 시트 등 다른 컨테이너에 담길 때 — 외곽 장식과 생성 행을 컨테이너에 맡긴다.
+ * hideNegative: 좁은 컨테이너(시트 중간 스냅)에서 네거티브 영역을 통째로 숨긴다 —
+ * 저장된 접힘 상태는 건드리지 않으므로 다시 보일 때 원래 상태로 복원된다.
+ */
+export function PromptPanel({
+  embedded = false,
+  hideNegative = false
+}: {
+  embedded?: boolean
+  hideNegative?: boolean
+}): React.JSX.Element {
   const request = useGenerationStore((s) => s.request)
   const patch = useGenerationStore((s) => s.patchRequest)
   const patchPromptParts = useGenerationStore((s) => s.patchPromptParts)
@@ -60,7 +70,7 @@ export function PromptPanel({ embedded = false }: { embedded?: boolean }): React
     const v = Number(localStorage.getItem('prompt_pos_ratio'))
     return v >= 0.15 && v <= 0.85 ? v : 0.62
   })
-  const bothOpen = !posCollapsed && !negCollapsed
+  const bothOpen = !posCollapsed && !negCollapsed && !hideNegative
   const startPromptResize = (e: React.MouseEvent): void => {
     e.preventDefault()
     const area = promptAreaRef.current
@@ -236,7 +246,11 @@ export function PromptPanel({ embedded = false }: { embedded?: boolean }): React
           </div>
         )}
         <div
-          className={'flex min-h-0 flex-col gap-1 ' + (negCollapsed ? 'flex-none' : 'min-h-9')}
+          className={cn(
+            'flex min-h-0 flex-col gap-1',
+            negCollapsed ? 'flex-none' : 'min-h-9',
+            hideNegative && 'hidden'
+          )}
           style={
             bothOpen
               ? { flexGrow: 1 - posRatio, flexBasis: 0 }

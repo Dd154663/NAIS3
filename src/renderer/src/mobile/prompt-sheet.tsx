@@ -10,13 +10,13 @@ const DRAG_THRESHOLD = 40
 /** 핸들 높이 = 모바일 탭 타깃(44px) */
 export const SHEET_HANDLE_HEIGHT = 44
 /**
- * full 스냅에서 비워두는 세로 공간: 상단 바(56) + 핸들(44) + 생성 바(57) + 콘텐츠 여백·경계(9).
- * 값이 어긋나도 시트 자체가 flex에서 줄어들 수 있으므로(아래 min-h-0) 생성 바가 화면 밖으로
- * 밀리는 일은 없다 — 이 상수는 "딱 맞게" 열기 위한 값이다.
+ * full 스냅에서 비워두는 세로 공간: 상단 바(56) + 핸들(44) + 생성 바(57) — 시트가 상단 바
+ * 바로 아래까지 닿는다(콘텐츠 하단 패딩은 full일 때 셸이 제거). 값이 어긋나도 시트 자체가
+ * flex에서 줄어들 수 있으므로(아래 min-h-0) 생성 바가 화면 밖으로 밀리는 일은 없다.
  */
-const RESERVED = 166
-/** 중간 스냅 높이 비율 — 프롬프트 영역이 보이는 고정 높이 */
-const MID_RATIO = 0.52
+const RESERVED = 157
+/** 중간 스냅 높이 비율 — 프롬프트 영역이 보이는 고정 높이 (네거티브는 이 스냅에서 숨김) */
+const MID_RATIO = 0.44
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
@@ -86,8 +86,9 @@ export function PromptSheet({
         transition={{ duration: 0.22, ease: EASE }}
       >
         {/* 데스크톱 좌측 패널을 그대로 삽입 — 프리셋 바·프롬프트·도구 오버레이·전부 실배선.
-            생성 행만 embedded로 빠지고 셸의 생성 바(GenerateRow 재사용)가 대신한다 */}
-        <PromptPanel embedded />
+            생성 행만 embedded로 빠지고 셸의 생성 바(GenerateRow 재사용)가 대신한다.
+            중간 스냅에서는 네거티브를 숨겨 프롬프트에 집중 — full에서 저장된 접힘 상태로 복원 */}
+        <PromptPanel embedded hideNegative={snap === 'mid'} />
       </motion.div>
     </div>
   )
