@@ -29,19 +29,16 @@ import { RefOverlay } from './ref-overlay'
 import { SOURCE_BANNER_HEIGHT, SourceBanner } from './source-banner'
 import { Button } from './ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
+import { cn } from '../lib/utils'
 
 const TOKEN_LIMIT = 512
 
-export function PromptPanel(): React.JSX.Element {
+/** embedded: 모바일 시트 등 다른 컨테이너에 담길 때 — 외곽 장식과 생성 행을 컨테이너에 맡긴다 */
+export function PromptPanel({ embedded = false }: { embedded?: boolean }): React.JSX.Element {
   const request = useGenerationStore((s) => s.request)
   const patch = useGenerationStore((s) => s.patchRequest)
   const patchPromptParts = useGenerationStore((s) => s.patchPromptParts)
   const promptSplitEnabled = useGenerationStore((s) => s.promptSplitEnabled)
-  const queue = useGenerationStore((s) => s.queue)
-  const batchCount = useGenerationStore((s) => s.batchCount)
-  const setBatchCount = useGenerationStore((s) => s.setBatchCount)
-  const generate = useGenerationStore((s) => s.generate)
-  const cancelAll = useGenerationStore((s) => s.cancelAll)
   const charOverlayOpen = useCharactersStore((s) => s.overlayOpen)
   const toggleCharOverlay = useCharactersStore((s) => s.toggleOverlay)
   const charItems = useCharactersStore((s) => s.items)
@@ -54,20 +51,6 @@ export function PromptPanel(): React.JSX.Element {
   const setCrefOpen = useCharRefsStore((s) => s.setOverlayOpen)
   const enabledCrefs = useCharRefsStore((s) => s.items.filter((c) => c.enabled).length)
   const source = useGenerationStore((s) => s.source)
-  const [paramsOpen, setParamsOpen] = useState(false)
-
-  useEffect(() => {
-    const openParams = (): void => setParamsOpen((v) => !v)
-    window.addEventListener('shortcut:openParams', openParams)
-    return () => window.removeEventListener('shortcut:openParams', openParams)
-  }, [])
-
-  // 씬 모드: 생성은 예약된 씬들을 예약 수만큼 큐에 넣는다. 예약 0이면 생성 버튼 비활성.
-  const centerMode = useLayoutStore((s) => s.centerMode)
-  // 모든 프리셋의 예약 총합 — 씬 생성 버튼 한 번으로 전부 실행
-  const sceneReserved = useScenesStore((s) => s.reservedTotal)
-  const generateReserved = useScenesStore((s) => s.generateReserved)
-  const isScene = centerMode === 'scene'
   // 프롬프트/네거티브 개별 접기 — 하나를 접으면 다른 하나가 넓어짐
   const [posCollapsed, setPosCollapsed] = useState(false)
   const [negCollapsed, setNegCollapsed] = useState(false)
@@ -100,10 +83,6 @@ export function PromptPanel(): React.JSX.Element {
     posRatioRef.current = posRatio
   }, [posRatio])
 
-  const subscriptionTier = useGenerationStore((s) => s.subscriptionTier)
-  const queueCount =
-    queue?.items.filter((i) => i.state === 'pending' || i.state === 'generating').length ?? 0
-  const generating = queueCount > 0
   const activeChars = charItems.filter((c) => c.enabled && c.prompt.trim()).length
 
   // 토큰 표시: 포지티브는 기본+캐릭터 합산(공홈과 동일), 네거티브는 메인 것만 —
@@ -139,20 +118,6 @@ export function PromptPanel(): React.JSX.Element {
     return () => clearTimeout(timer)
   }, [request.prompt, request.negativePrompt, enabledChars])
 
-  const anlas = useMemo(
-    () =>
-      estimateAnlas({
-        width: request.width,
-        height: request.height,
-        steps: request.steps,
-        charRefCount: enabledCrefs,
-        isOpus: subscriptionTier === 'opus',
-        batchCount,
-        unencodedVibes: 0 // 캐시 상태는 오버레이에서 확인 — 배지로만 안내
-      }),
-    [request.width, request.height, request.steps, subscriptionTier, batchCount, enabledCrefs]
-  )
-
   // 오버레이는 하나만 열림 — 서로 배타
   const only = (target: 'char' | 'frag' | 'vibe' | 'cref'): void => {
     const map = {
@@ -174,7 +139,12 @@ export function PromptPanel(): React.JSX.Element {
   }
 
   return (
-    <aside className="relative flex h-full w-full flex-col gap-3 rounded-xl border border-line bg-surface p-3">
+    <aside
+      className={cn(
+        'relative flex h-full w-full flex-col gap-3 bg-surface p-3',
+        !embedded && 'rounded-xl border border-line'
+      )}
+    >
       {/* 상단 여백을 창 드래그 영역으로 (프롬프트 영역 위) */}
       <div className="drag absolute inset-x-0 top-0 h-3" />
       {/* 오버레이는 프롬프트 영역만 덮는다 — 하단 버튼들은 항상 접근 가능 (NAIS2 2.0.7 교훈)
@@ -325,7 +295,61 @@ export function PromptPanel(): React.JSX.Element {
         />
       </div>
 
-      {/* 생성 행: 파라미터 / 배치 / 생성 */}
+      {/* 생성 행 — embedded(모바일 시트)에서는 셸의 생성 바가 대신 렌더 */}
+      {!embedded && <GenerateRow />}
+    </aside>
+  )
+}
+
+/**
+ * 생성 행: 파라미터 / 배치 / 생성(3상태: 생성·씬 생성·취소).
+ * 데스크톱 프롬프트 패널 하단과 모바일 생성 바가 공유한다 — trailing은 행 끝에
+ * 덧붙는 요소(모바일 히스토리 버튼 등).
+ */
+export function GenerateRow({ trailing }: { trailing?: React.ReactNode }): React.JSX.Element {
+  const request = useGenerationStore((s) => s.request)
+  const queue = useGenerationStore((s) => s.queue)
+  const batchCount = useGenerationStore((s) => s.batchCount)
+  const setBatchCount = useGenerationStore((s) => s.setBatchCount)
+  const generate = useGenerationStore((s) => s.generate)
+  const cancelAll = useGenerationStore((s) => s.cancelAll)
+  const subscriptionTier = useGenerationStore((s) => s.subscriptionTier)
+  const enabledCrefs = useCharRefsStore((s) => s.items.filter((c) => c.enabled).length)
+  const [paramsOpen, setParamsOpen] = useState(false)
+
+  useEffect(() => {
+    const openParams = (): void => setParamsOpen((v) => !v)
+    window.addEventListener('shortcut:openParams', openParams)
+    return () => window.removeEventListener('shortcut:openParams', openParams)
+  }, [])
+
+  // 씬 모드: 생성은 예약된 씬들을 예약 수만큼 큐에 넣는다. 예약 0이면 생성 버튼 비활성.
+  const centerMode = useLayoutStore((s) => s.centerMode)
+  // 모든 프리셋의 예약 총합 — 씬 생성 버튼 한 번으로 전부 실행
+  const sceneReserved = useScenesStore((s) => s.reservedTotal)
+  const generateReserved = useScenesStore((s) => s.generateReserved)
+  const isScene = centerMode === 'scene'
+
+  const queueCount =
+    queue?.items.filter((i) => i.state === 'pending' || i.state === 'generating').length ?? 0
+  const generating = queueCount > 0
+
+  const anlas = useMemo(
+    () =>
+      estimateAnlas({
+        width: request.width,
+        height: request.height,
+        steps: request.steps,
+        charRefCount: enabledCrefs,
+        isOpus: subscriptionTier === 'opus',
+        batchCount,
+        unencodedVibes: 0 // 캐시 상태는 오버레이에서 확인 — 배지로만 안내
+      }),
+    [request.width, request.height, request.steps, subscriptionTier, batchCount, enabledCrefs]
+  )
+
+  return (
+    <>
       <div className="flex items-center gap-2">
         <Button
           size="icon"
@@ -403,10 +427,11 @@ export function PromptPanel(): React.JSX.Element {
             생성
           </Button>
         )}
+        {trailing}
       </div>
 
       <ParamsDialog open={paramsOpen} onOpenChange={setParamsOpen} />
-    </aside>
+    </>
   )
 }
 

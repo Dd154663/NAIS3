@@ -1,11 +1,4 @@
-import {
-  closestCenter,
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent
-} from '@dnd-kit/core'
+import { closestCenter, DndContext, type DragEndEvent } from '@dnd-kit/core'
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import {
   arrayMove,
@@ -14,6 +7,7 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable'
 import { useRef, type CSSProperties } from 'react'
+import { useDndSensors } from '../lib/dnd-sensors'
 import { cn } from '../lib/utils'
 
 /** 드롭다운 목록용 세로 드래그 정렬 컨테이너 — onReorder에 새 id 순서 전달 */
@@ -26,7 +20,8 @@ export function SortableList<Id extends number | string>({
   onReorder: (ids: Id[]) => void
   children: React.ReactNode
 }): React.JSX.Element {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+  // 마우스 distance 4(기존과 동일) + 터치 롱프레스 — 터치 스크롤과 드래그 공존
+  const sensors = useDndSensors(4)
   const onDragEnd = (e: DragEndEvent): void => {
     const { active, over } = e
     if (!over || active.id === over.id) return
@@ -80,7 +75,8 @@ export function SortableRow({
     <div
       ref={sortable.setNodeRef}
       style={style}
-      className={cn('flex touch-none items-center', className)}
+      // touch-manipulation: 터치 스크롤 허용(드래그는 롱프레스로 시작) — 마우스에는 무영향
+      className={cn('flex touch-manipulation items-center', className)}
       {...sortable.attributes}
       {...sortable.listeners}
       // capture 단계에서 좌표 기록 (dnd 리스너보다 먼저, 덮어쓰지 않음)
