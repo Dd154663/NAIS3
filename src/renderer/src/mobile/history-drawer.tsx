@@ -5,6 +5,7 @@ const EASE = [0.22, 1, 0.36, 1] as const
 
 /**
  * 히스토리 우측 드로어 (상주하지 않는 오버레이 — 가장자리 주인 규칙).
+ * 부모(셸의 상단 바 아래~생성 바 위 컨테이너) 안에 absolute로 갇혀 생성 바를 덮지 않는다.
  * 딤 탭 또는 생성 바 히스토리 버튼 재탭으로 닫힘.
  */
 export function HistoryDrawer({
@@ -20,7 +21,7 @@ export function HistoryDrawer({
         <>
           <motion.div
             key="dim"
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -29,7 +30,7 @@ export function HistoryDrawer({
           />
           <motion.aside
             key="drawer"
-            className="fixed inset-y-0 right-0 z-50 flex w-[240px] max-w-[75vw] flex-col border-l border-line bg-surface shadow-2xl"
+            className="absolute inset-y-0 right-0 z-50 flex w-[240px] max-w-[75vw] flex-col border-l border-line bg-surface shadow-2xl"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}

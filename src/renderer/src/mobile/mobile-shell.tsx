@@ -28,43 +28,46 @@ export function MobileShell(): React.JSX.Element {
     <div className="flex min-h-0 flex-1 flex-col">
       <TopBar />
 
-      {/* 중앙 콘텐츠 — 시트가 full까지 열리면 높이가 0에 가까워지므로 넘침을 잘라 준다 */}
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-2">
-        {centerMode === 'scene' ? (
-          <SceneMode />
-        ) : centerMode === 'director' ? (
-          <DirectorMode />
-        ) : centerMode === 'library' ? (
-          <LibraryMode />
-        ) : centerMode === 'websearch' ? (
-          <WebSearchMode />
-        ) : (
-          <PreviewPane />
-        )}
-        {/* 시트 밖(중앙 콘텐츠) 딤 — 탭하면 시트 닫힘. 드로어(z-50)보다 아래 */}
-        <AnimatePresence>
-          {isMain && snap !== 'closed' && (
-            <motion.div
-              key="sheet-dim"
-              className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              onClick={() => setSnap('closed')}
-            />
+      {/* 드로어 위치 기준 컨테이너 — 상단 바 아래 ~ 생성 바 위. 생성 바는 이 밖이라
+          드로어·딤이 절대 덮지 못하고(항상 최상단), 히스토리 버튼 재탭 닫힘이 성립한다 */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {/* 중앙 콘텐츠 — 시트가 full까지 열리면 높이가 0에 가까워지므로 넘침을 잘라 준다 */}
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-2">
+          {centerMode === 'scene' ? (
+            <SceneMode />
+          ) : centerMode === 'director' ? (
+            <DirectorMode />
+          ) : centerMode === 'library' ? (
+            <LibraryMode />
+          ) : centerMode === 'websearch' ? (
+            <WebSearchMode />
+          ) : (
+            <PreviewPane />
           )}
-        </AnimatePresence>
+          {/* 시트 밖(중앙 콘텐츠) 딤 — 탭하면 시트 닫힘. 드로어(z-50)보다 아래 */}
+          <AnimatePresence>
+            {isMain && snap !== 'closed' && (
+              <motion.div
+                key="sheet-dim"
+                className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                onClick={() => setSnap('closed')}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+
+        {isMain && <PromptSheet snap={snap} onSnapChange={setSnap} />}
+
+        <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
       </div>
 
       {isMain && (
-        <>
-          <PromptSheet snap={snap} onSnapChange={setSnap} />
-          <GenBar historyOpen={historyOpen} onToggleHistory={() => setHistoryOpen((v) => !v)} />
-        </>
+        <GenBar historyOpen={historyOpen} onToggleHistory={() => setHistoryOpen((v) => !v)} />
       )}
-
-      <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
     </div>
   )
 }

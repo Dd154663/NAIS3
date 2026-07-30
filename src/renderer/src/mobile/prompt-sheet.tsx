@@ -4,13 +4,12 @@ import {
   ImageUp,
   Layers,
   Puzzle,
-  SlidersHorizontal,
   UsersRound,
   type LucideIcon
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { cn } from '../lib/utils'
+import { Button } from '../components/ui/button'
 
 export type SheetSnap = 'closed' | 'mid' | 'full'
 
@@ -29,11 +28,13 @@ const MID_RATIO = 0.52
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
-const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
+/** 도구 행 — 데스크톱 프롬프트 패널과 동일한 4버튼 (파라미터는 생성 바의 ⚙) */
+type ToolId = 'char' | 'frag' | 'vibe' | 'cref'
+const TOOLS: { id: ToolId; label: string; icon: LucideIcon }[] = [
   { id: 'char', label: '캐릭터', icon: UsersRound },
   { id: 'frag', label: '조각', icon: Puzzle },
-  { id: 'vibe', label: '바이브 · 레퍼런스', icon: Layers },
-  { id: 'params', label: '파라미터', icon: SlidersHorizontal }
+  { id: 'vibe', label: '바이브', icon: Layers },
+  { id: 'cref', label: '레퍼런스', icon: ImageUp }
 ]
 
 function useViewportHeight(): number {
@@ -101,27 +102,74 @@ export function PromptSheet({
         animate={{ height }}
         transition={{ duration: 0.22, ease: EASE }}
       >
-        <div className="flex h-full flex-col gap-2 overflow-y-auto px-3 pb-3">
-          {/* 목업 — 다음 차수에서 실제 배선 */}
-          <SheetLabel>프롬프트</SheetLabel>
-          <textarea
-            placeholder="프롬프트"
-            className="min-h-24 w-full flex-1 resize-none rounded-md border border-line bg-paper p-2 text-[13px] text-ink outline-none placeholder:text-faint"
-          />
-          {/* 목업 — 다음 차수에서 실제 배선 */}
-          <SheetLabel>네거티브</SheetLabel>
-          <textarea
-            placeholder="네거티브"
-            className="min-h-16 w-full resize-none rounded-md border border-line bg-paper p-2 text-[13px] text-ink outline-none placeholder:text-faint"
-          />
-          {/* 목업 — 다음 차수에서 실제 배선 */}
-          <div className="flex shrink-0 flex-col">
-            {SECTIONS.map((s) => (
-              <SheetSection key={s.id} label={s.label} icon={s.icon} />
-            ))}
-          </div>
-        </div>
+        <SheetBody />
       </motion.div>
+    </div>
+  )
+}
+
+/**
+ * 시트 내부 — 데스크톱 프롬프트 패널과 동일한 골격:
+ * 프롬프트 영역(오버레이는 이 영역만 위로 덮음) + 하단 도구 행(항상 접근 가능).
+ */
+function SheetBody(): React.JSX.Element {
+  // 도구 오버레이는 한 번에 하나만 — 재탭으로 닫힘 (데스크톱 only()와 동일)
+  const [tool, setTool] = useState<ToolId | null>(null)
+  const active = TOOLS.find((t) => t.id === tool)
+
+  return (
+    <div className="flex h-full flex-col gap-2 px-3 pb-3">
+      {/* 오버레이는 프롬프트 영역만 덮는다 — 하단 도구 행은 항상 접근 가능 (데스크톱과 동일) */}
+      <div className="relative flex min-h-0 flex-1 flex-col gap-2">
+        {/* 목업 — 다음 차수에서 실제 배선 */}
+        <SheetLabel>프롬프트</SheetLabel>
+        <textarea
+          placeholder="프롬프트"
+          className="min-h-16 w-full flex-1 resize-none rounded-md border border-line bg-paper p-2 text-[13px] text-ink outline-none placeholder:text-faint"
+        />
+        {/* 목업 — 다음 차수에서 실제 배선 */}
+        <SheetLabel>네거티브</SheetLabel>
+        <textarea
+          placeholder="네거티브"
+          className="min-h-16 w-full resize-none rounded-md border border-line bg-paper p-2 text-[13px] text-ink outline-none placeholder:text-faint"
+        />
+        <AnimatePresence>
+          {active && (
+            <motion.div
+              key="tool-overlay"
+              className="absolute -inset-1 z-10 flex flex-col gap-2 rounded-lg bg-surface p-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.18, ease: EASE }}
+            >
+              {/* 목업 — 다음 차수에서 실제 배선 (데스크톱 CharacterOverlay 등 재사용) */}
+              <div className="flex h-9 shrink-0 items-center gap-2 px-1 text-[13px] font-medium text-ink">
+                <active.icon size={14} />
+                {active.label}
+              </div>
+              <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div key={i} className="h-20 rounded-md bg-surface-2" />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* 도구 행: 캐릭터 / 조각 / 바이브 / 레퍼런스 — 탭하면 위 오버레이, 재탭으로 닫힘 */}
+      <div className="grid shrink-0 grid-cols-4 gap-1.5">
+        {TOOLS.map((t) => (
+          <ToolButton
+            key={t.id}
+            active={tool === t.id}
+            icon={<t.icon size={14} />}
+            label={t.label}
+            onClick={() => setTool((v) => (v === t.id ? null : t.id))}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -130,47 +178,26 @@ function SheetLabel({ children }: { children: React.ReactNode }): React.JSX.Elem
   return <div className="shrink-0 text-[12px] font-medium text-muted">{children}</div>
 }
 
-/** 데스크톱 프롬프트 패널 섹션 헤더 모양의 접이식 행 — 내용은 목업 */
-function SheetSection({
+/** 데스크톱 프롬프트 패널 ToolButton과 동형 — 높이만 모바일 탭 타깃(44px) */
+function ToolButton({
+  active,
+  icon,
   label,
-  icon: Icon
+  onClick
 }: {
+  active: boolean
+  icon: React.ReactNode
   label: string
-  icon: LucideIcon
+  onClick: () => void
 }): React.JSX.Element {
-  const [open, setOpen] = useState(false)
   return (
-    <div className="border-b border-line last:border-b-0">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          'flex h-11 w-full items-center gap-2 rounded-md px-1 text-[13px] transition-colors hover:bg-surface-2',
-          open ? 'text-ink' : 'text-muted'
-        )}
-      >
-        <Icon size={14} />
-        <span className="font-medium">{label}</span>
-        <span className="flex-1" />
-        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="body"
-            className="overflow-hidden"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18, ease: EASE }}
-          >
-            {/* 목업 — 다음 차수에서 실제 배선 */}
-            <div className="flex items-center gap-2 px-1 pb-2 text-[12px] text-faint">
-              <ImageUp size={13} />
-              {label} 내용은 다음 차수
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <Button
+      variant={active ? 'default' : 'ghost'}
+      className="h-11 w-full min-w-0 gap-1 px-1.5 text-[12px]"
+      onClick={onClick}
+    >
+      {icon}
+      <span className="min-w-0 truncate">{label}</span>
+    </Button>
   )
 }
