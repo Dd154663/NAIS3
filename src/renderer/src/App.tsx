@@ -26,6 +26,8 @@ import { bindUpdateEvents } from './stores/update-store'
 import { bindNavMouse } from './lib/nav-history'
 import { useLayoutStore } from './stores/layout-store'
 import { useThemeStore } from './stores/theme-store'
+import { MobileShell } from './mobile/mobile-shell'
+import { useIsMobile } from './mobile/use-mobile'
 
 export default function App(): React.JSX.Element {
   const leftOpen = useLayoutStore((s) => s.leftOpen)
@@ -36,6 +38,8 @@ export default function App(): React.JSX.Element {
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth)
   const [ready, setReady] = useState(false)
   const [resizing, setResizing] = useState(false)
+  // 좁은 화면(모바일)에서는 셸을 교체한다 — false면 아래 데스크톱 트리 그대로
+  const isMobile = useIsMobile()
 
   // 사이드바 폭 드래그 조절
   const startResize = (e: React.MouseEvent): void => {
@@ -96,58 +100,64 @@ export default function App(): React.JSX.Element {
   return (
     <TooltipProvider>
       <div className="flex h-screen flex-col bg-paper">
-        <Titlebar />
-        <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
-          <AnimatePresence initial={false}>
-            {leftOpen && (
-              <motion.div
-                key="left"
-                className="relative h-full shrink-0 overflow-hidden"
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: sidebarWidth, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                // 드래그 중엔 즉시 반영 (애니메이션이 따라오면 답답함)
-                transition={
-                  resizing ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
-                }
-              >
-                <div style={{ width: sidebarWidth }} className="h-full">
-                  <PromptPanel />
-                </div>
-                {/* 폭 조절 핸들 */}
-                <div
-                  className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize transition-colors hover:bg-accent/30"
-                  onMouseDown={startResize}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          {centerMode === 'scene' ? (
-            <SceneMode />
-          ) : centerMode === 'director' ? (
-            <DirectorMode />
-          ) : centerMode === 'library' ? (
-            <LibraryMode />
-          ) : centerMode === 'websearch' ? (
-            <WebSearchMode />
-          ) : (
-            <PreviewPane />
-          )}
-          <AnimatePresence initial={false}>
-            {rightOpen && (
-              <motion.div
-                key="right"
-                className="h-full shrink-0 overflow-hidden"
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 240, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <HistoryPanel />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {isMobile ? (
+          <MobileShell />
+        ) : (
+          <>
+            <Titlebar />
+            <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
+              <AnimatePresence initial={false}>
+                {leftOpen && (
+                  <motion.div
+                    key="left"
+                    className="relative h-full shrink-0 overflow-hidden"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: sidebarWidth, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    // 드래그 중엔 즉시 반영 (애니메이션이 따라오면 답답함)
+                    transition={
+                      resizing ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
+                    }
+                  >
+                    <div style={{ width: sidebarWidth }} className="h-full">
+                      <PromptPanel />
+                    </div>
+                    {/* 폭 조절 핸들 */}
+                    <div
+                      className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize transition-colors hover:bg-accent/30"
+                      onMouseDown={startResize}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              {centerMode === 'scene' ? (
+                <SceneMode />
+              ) : centerMode === 'director' ? (
+                <DirectorMode />
+              ) : centerMode === 'library' ? (
+                <LibraryMode />
+              ) : centerMode === 'websearch' ? (
+                <WebSearchMode />
+              ) : (
+                <PreviewPane />
+              )}
+              <AnimatePresence initial={false}>
+                {rightOpen && (
+                  <motion.div
+                    key="right"
+                    className="h-full shrink-0 overflow-hidden"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 240, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <HistoryPanel />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </>
+        )}
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         <TextPromptHost />
         <InpaintHost />

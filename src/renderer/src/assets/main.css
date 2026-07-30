@@ -113,3 +113,11 @@ input {
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* 터치 기기(hover 없음): hover로만 드러나는 컨트롤을 상시 노출 — 컴포넌트 개별 수정 대신
+   ui-scale과 같은 속성 선택자 패턴 1블록 (모바일 이식 기반 공사) */
+@media (hover: none) {
+  .opacity-0[class*='group-hover:opacity-100'] {
+    opacity: 1;
+  }
+}

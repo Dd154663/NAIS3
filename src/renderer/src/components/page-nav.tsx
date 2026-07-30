@@ -5,7 +5,7 @@ import { useLayoutStore } from '../stores/layout-store'
 
 type Page = 'main' | 'scene' | 'director' | 'library' | 'websearch'
 
-const PAGES: { id: Page; label: string; icon: LucideIcon }[] = [
+export const PAGES: { id: Page; label: string; icon: LucideIcon }[] = [
   { id: 'main', label: '메인', icon: Image },
   { id: 'scene', label: '씬', icon: LayoutGrid },
   { id: 'director', label: '디렉터', icon: Wand2 },
