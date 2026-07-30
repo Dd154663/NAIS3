@@ -50,7 +50,7 @@ function UpdateButton(): React.JSX.Element | null {
 }
 
 /** Anlas 잔액 + 예상 소모(-N). 토큰 미설정(잔액 없음)이면 표시하지 않음 */
-function AnlasChips({ balance, cost }: { balance: number | null; cost: number }): React.JSX.Element | null {
+export function AnlasChips({ balance, cost }: { balance: number | null; cost: number }): React.JSX.Element | null {
   if (balance === null) return null
   return (
     <div className="no-drag mx-1 flex items-center gap-1">
