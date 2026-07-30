@@ -99,7 +99,8 @@ export default function App(): React.JSX.Element {
 
   return (
     <TooltipProvider>
-      <div className="flex h-screen flex-col bg-paper">
+      {/* dvh: 모바일 브라우저 주소창 뒤 영역 제외(하단 바 가림 방지) — 데스크톱은 vh와 동일 */}
+      <div className="flex h-dvh flex-col bg-paper">
         {isMobile ? (
           <MobileShell />
         ) : (
