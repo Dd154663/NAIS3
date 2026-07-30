@@ -1,15 +1,7 @@
-import {
-  ChevronDown,
-  ChevronUp,
-  ImageUp,
-  Layers,
-  Puzzle,
-  UsersRound,
-  type LucideIcon
-} from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '../components/ui/button'
+import { PromptPanel } from '../components/prompt-panel'
 
 export type SheetSnap = 'closed' | 'mid' | 'full'
 
@@ -27,15 +19,6 @@ const RESERVED = 166
 const MID_RATIO = 0.52
 
 const EASE = [0.22, 1, 0.36, 1] as const
-
-/** 도구 행 — 데스크톱 프롬프트 패널과 동일한 4버튼 (파라미터는 생성 바의 ⚙) */
-type ToolId = 'char' | 'frag' | 'vibe' | 'cref'
-const TOOLS: { id: ToolId; label: string; icon: LucideIcon }[] = [
-  { id: 'char', label: '캐릭터', icon: UsersRound },
-  { id: 'frag', label: '조각', icon: Puzzle },
-  { id: 'vibe', label: '바이브', icon: Layers },
-  { id: 'cref', label: '레퍼런스', icon: ImageUp }
-]
 
 function useViewportHeight(): number {
   const [h, setH] = useState(() => (typeof window === 'undefined' ? 844 : window.innerHeight))
@@ -102,102 +85,10 @@ export function PromptSheet({
         animate={{ height }}
         transition={{ duration: 0.22, ease: EASE }}
       >
-        <SheetBody />
+        {/* 데스크톱 좌측 패널을 그대로 삽입 — 프리셋 바·프롬프트·도구 오버레이·전부 실배선.
+            생성 행만 embedded로 빠지고 셸의 생성 바(GenerateRow 재사용)가 대신한다 */}
+        <PromptPanel embedded />
       </motion.div>
     </div>
-  )
-}
-
-/**
- * 시트 내부 — 데스크톱 프롬프트 패널과 동일한 골격:
- * 프롬프트 영역(오버레이는 이 영역만 위로 덮음) + 하단 도구 행(항상 접근 가능).
- */
-function SheetBody(): React.JSX.Element {
-  // 도구 오버레이는 한 번에 하나만 — 재탭으로 닫힘 (데스크톱 only()와 동일)
-  const [tool, setTool] = useState<ToolId | null>(null)
-  const active = TOOLS.find((t) => t.id === tool)
-
-  return (
-    <div className="flex h-full flex-col gap-2 px-3 pb-3">
-      {/* 오버레이는 프롬프트 영역만 덮는다 — 하단 도구 행은 항상 접근 가능 (데스크톱과 동일) */}
-      <div className="relative flex min-h-0 flex-1 flex-col gap-2">
-        {/* 목업 — 다음 차수에서 실제 배선 */}
-        <SheetLabel>프롬프트</SheetLabel>
-        <textarea
-          placeholder="프롬프트"
-          className="min-h-16 w-full flex-1 resize-none rounded-md border border-line bg-paper p-2 text-[13px] text-ink outline-none placeholder:text-faint"
-        />
-        {/* 목업 — 다음 차수에서 실제 배선 */}
-        <SheetLabel>네거티브</SheetLabel>
-        <textarea
-          placeholder="네거티브"
-          className="min-h-16 w-full resize-none rounded-md border border-line bg-paper p-2 text-[13px] text-ink outline-none placeholder:text-faint"
-        />
-        <AnimatePresence>
-          {active && (
-            <motion.div
-              key="tool-overlay"
-              className="absolute -inset-1 z-10 flex flex-col gap-2 rounded-lg bg-surface p-2"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.18, ease: EASE }}
-            >
-              {/* 목업 — 다음 차수에서 실제 배선 (데스크톱 CharacterOverlay 등 재사용) */}
-              <div className="flex h-9 shrink-0 items-center gap-2 px-1 text-[13px] font-medium text-ink">
-                <active.icon size={14} />
-                {active.label}
-              </div>
-              <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto">
-                {Array.from({ length: 4 }, (_, i) => (
-                  <div key={i} className="h-20 rounded-md bg-surface-2" />
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* 도구 행: 캐릭터 / 조각 / 바이브 / 레퍼런스 — 탭하면 위 오버레이, 재탭으로 닫힘 */}
-      <div className="grid shrink-0 grid-cols-4 gap-1.5">
-        {TOOLS.map((t) => (
-          <ToolButton
-            key={t.id}
-            active={tool === t.id}
-            icon={<t.icon size={14} />}
-            label={t.label}
-            onClick={() => setTool((v) => (v === t.id ? null : t.id))}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function SheetLabel({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <div className="shrink-0 text-[12px] font-medium text-muted">{children}</div>
-}
-
-/** 데스크톱 프롬프트 패널 ToolButton과 동형 — 높이만 모바일 탭 타깃(44px) */
-function ToolButton({
-  active,
-  icon,
-  label,
-  onClick
-}: {
-  active: boolean
-  icon: React.ReactNode
-  label: string
-  onClick: () => void
-}): React.JSX.Element {
-  return (
-    <Button
-      variant={active ? 'default' : 'ghost'}
-      className="h-11 w-full min-w-0 gap-1 px-1.5 text-[12px]"
-      onClick={onClick}
-    >
-      {icon}
-      <span className="min-w-0 truncate">{label}</span>
-    </Button>
   )
 }

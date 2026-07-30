@@ -1,5 +1,5 @@
-import { History } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import { HistoryPanel } from '../components/history-panel'
 
 const EASE = [0.22, 1, 0.36, 1] as const
 
@@ -28,26 +28,17 @@ export function HistoryDrawer({
             transition={{ duration: 0.18, ease: EASE }}
             onClick={onClose}
           />
+          {/* 데스크톱 우측 패널 카드(자체 헤더·카운트·비우기 포함)를 그대로 슬라이드 인 —
+              p-2로 카드가 데스크톱처럼 가장자리에서 떠 보인다 */}
           <motion.aside
             key="drawer"
-            className="absolute inset-y-0 right-0 z-50 flex w-[240px] max-w-[75vw] flex-col border-l border-line bg-surface shadow-2xl"
-            initial={{ x: '100%' }}
+            className="absolute inset-y-0 right-0 z-50 max-w-[75vw] p-2 drop-shadow-2xl"
+            initial={{ x: '110%' }}
             animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            exit={{ x: '110%' }}
             transition={{ duration: 0.22, ease: EASE }}
           >
-            <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-              <History size={14} className="text-muted" />
-              <span className="text-[13px] font-medium">히스토리</span>
-            </div>
-            {/* 목업 — 다음 차수에서 실제 배선 (HistoryPanel 재사용) */}
-            <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              <div className="grid grid-cols-2 gap-2">
-                {Array.from({ length: 12 }, (_, i) => (
-                  <div key={i} className="aspect-square rounded-md bg-surface-2" />
-                ))}
-              </div>
-            </div>
+            <HistoryPanel />
           </motion.aside>
         </>
       )}
