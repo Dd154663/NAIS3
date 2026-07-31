@@ -94,8 +94,9 @@ export function WebSearchMode(): React.JSX.Element {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface">
-      {/* 주소창 + 네비게이션 */}
-      <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
+      {/* 주소창 + 네비게이션 — 모바일(≤819px): 한 줄에 못 들어가면 URL 입력이 다음 줄로
+          내려온다(구조·순서는 그대로). SPEC.md M-P3 부가 처리 */}
+      <div className="flex items-center gap-1 border-b border-line px-2 py-1.5 mobile:flex-wrap">
         <NavBtn tip="뒤로" disabled={!canBack} onClick={() => webviewRef.current?.goBack()}>
           <ArrowLeft size={15} />
         </NavBtn>
@@ -109,7 +110,7 @@ export function WebSearchMode(): React.JSX.Element {
           <Home size={15} />
         </NavBtn>
         <Input
-          className="h-8 flex-1 font-mono text-[12px]"
+          className="h-8 min-w-0 flex-1 font-mono text-[12px]"
           value={inputUrl}
           placeholder="URL 또는 태그 검색 (도메인이 아니면 단부루 태그로 검색)"
           onChange={(e) => setInputUrl(e.target.value)}
@@ -135,10 +136,10 @@ export function WebSearchMode(): React.JSX.Element {
         </div>
       </div>
 
-      {/* 퀵링크 바 */}
-      <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
+      {/* 퀵링크 바 — 모바일: 칩이 넘치면 한 줄 유지 + 가로 스크롤 */}
+      <div className="flex items-center gap-1 border-b border-line px-2 py-1.5 no-scrollbar mobile:overflow-x-auto">
         {quickLinks.map((link, i) => (
-          <span key={`${link.url}-${i}`} className="group relative">
+          <span key={`${link.url}-${i}`} className="group relative shrink-0">
             <button
               className="rounded-full border border-line bg-surface-2/60 px-2.5 py-1 text-[12px] text-muted transition-colors hover:text-ink"
               onClick={() => navigate(link.url)}
@@ -159,7 +160,7 @@ export function WebSearchMode(): React.JSX.Element {
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 gap-1 px-2 text-[12px]"
+          className="h-7 shrink-0 gap-1 px-2 text-[12px]"
           onClick={async () => {
             const input = await askText('퀵링크 추가', '', 'https://... 또는 도메인')
             if (!input?.trim()) return
@@ -174,7 +175,7 @@ export function WebSearchMode(): React.JSX.Element {
         <Button
           size="sm"
           variant="ghost"
-          className={cn('h-7 px-2 text-[12px]', editLinks && 'text-accent')}
+          className={cn('h-7 shrink-0 px-2 text-[12px]', editLinks && 'text-accent')}
           onClick={() => setEditLinks(!editLinks)}
         >
           {editLinks ? '완료' : '편집'}

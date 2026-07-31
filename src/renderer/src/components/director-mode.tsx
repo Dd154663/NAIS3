@@ -129,11 +129,13 @@ export function DirectorMode(): React.JSX.Element {
   const shown = source ? `data:image/png;base64,${source}` : null
 
   return (
-    <div className="flex min-h-0 flex-1 gap-3">
+    // 모바일(≤819px): 같은 두 구획(캔버스 + 툴 패널)을 방향만 세로로 — SPEC.md M-P3 합의 ②.
+    // 두 구획이 동시에 보이는 것이 조건이라 툴 패널에 화면 42% 고정 비율을 준다.
+    <div className="flex min-h-0 flex-1 gap-3 mobile:flex-col">
       {/* 캔버스 */}
       <div
         className={cn(
-          'relative flex min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl border bg-surface',
+          'relative flex min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl border bg-surface mobile:min-h-0',
           dragOver ? 'border-accent' : 'border-line'
         )}
         onDragOver={(e) => {
@@ -239,8 +241,8 @@ export function DirectorMode(): React.JSX.Element {
         />
       </div>
 
-      {/* 툴 패널 */}
-      <div className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface">
+      {/* 툴 패널 (모바일: 캔버스 아래 가로 전폭 · 화면 42% — 내부는 아래에서 자체 스크롤) */}
+      <div className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface mobile:w-full mobile:flex-[0_0_42%] mobile:min-h-0">
         <div className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Wand2 size={16} className="text-accent" />
           <h2 className="text-[14px] font-semibold">디렉터 툴</h2>

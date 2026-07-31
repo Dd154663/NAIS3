@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 
-/** 모바일 셸 진입 기준 폭 — 태블릿 세로(820px)보다 좁으면 모바일 레이아웃 */
+/**
+ * 모바일 셸 진입 기준 폭 — 태블릿 세로(820px)보다 좁으면 모바일 레이아웃.
+ * assets/main.css의 `mobile:` 커스텀 변형(@media (max-width: 819px))과 같은 기준 —
+ * 한쪽을 바꾸면 다른 쪽도 함께 바꾼다.
+ */
 export const MOBILE_MAX_WIDTH = 819
 
 const QUERY = `(max-width: ${MOBILE_MAX_WIDTH}px)`

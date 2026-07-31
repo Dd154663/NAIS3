@@ -70,7 +70,8 @@ export function DialogContent({
         {children}
         <DialogPrimitive.Close
           aria-label="Close"
-          className="absolute right-2.5 top-2.5 z-10 grid size-7 place-items-center rounded-md bg-surface/90 text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+          // 모바일(≤819px): 스크롤되는 콘텐츠가 반투명 배경 뒤로 비쳐 보이지 않게 불투명 (M-P3)
+          className="absolute right-2.5 top-2.5 z-10 grid size-7 place-items-center rounded-md bg-surface/90 text-muted transition-colors hover:bg-surface-2 hover:text-ink mobile:bg-surface"
         >
           <X size={16} />
         </DialogPrimitive.Close>

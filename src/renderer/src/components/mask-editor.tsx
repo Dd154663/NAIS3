@@ -138,7 +138,9 @@ export function MaskEditor({
             />
           </div>
 
-          <div className="flex w-full items-center gap-2">
+          {/* 모바일(≤819px): 한 줄에 다 못 들어가 "적용"이 화면 밖으로 밀리므로 줄바꿈 허용
+              (SPEC.md M-P3 오버레이 스윕 — 390×844에서 확인) */}
+          <div className="flex w-full items-center gap-2 mobile:flex-wrap">
             <Button
               size="sm"
               variant={erasing ? 'ghost' : 'default'}
@@ -167,7 +169,8 @@ export function MaskEditor({
             <Button size="sm" variant="ghost" className="gap-1" onClick={clear}>
               <RotateCcw size={13} /> 초기화
             </Button>
-            <div className="flex-1" />
+            {/* 모바일: 줄바꿈된 뒤에는 이 스페이서가 "적용"을 혼자 다음 줄로 밀어내 숨긴다 */}
+            <div className="flex-1 mobile:hidden" />
             <Button variant="ghost" onClick={onCancel}>
               취소
             </Button>

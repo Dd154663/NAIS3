@@ -1,10 +1,7 @@
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
   useDroppable,
-  useSensor,
-  useSensors,
   type DragEndEvent,
   type DragStartEvent
 } from '@dnd-kit/core'
@@ -31,6 +28,7 @@ import { imageUrl } from '../lib/constants'
 import { cn } from '../lib/utils'
 import { askConfirm, askText } from '../stores/dialog-store'
 import { useLibraryStore } from '../stores/library-store'
+import { useDndSensors } from '../lib/dnd-sensors'
 import { isLeavingDropZone, useDragEndCleanup } from '../lib/drop-zone'
 import { DropOverlay } from './drop-overlay'
 import { ImageContextMenu } from './image-context-menu'
@@ -104,8 +102,9 @@ export function LibraryMode(): React.JSX.Element {
   const [lightboxIdx, setLightboxIdx] = useState(-1)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
-  // 드래그 재정렬 (5px 이동해야 시작 — 클릭과 구분). DragOverlay 클론 방식은 씬 그리드와 동일
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  // 드래그 재정렬 (마우스 5px 이동해야 시작 — 클릭과 구분). DragOverlay 클론 방식은 씬 그리드와 동일.
+  // 터치는 롱프레스로 시작해 그리드 스크롤과 공존한다 (sortable-list.tsx와 같은 공용 훅)
+  const sensors = useDndSensors(5)
   const [dragImg, setDragImg] = useState<LibraryImage | null>(null)
   const onDragStart = (e: DragStartEvent): void => {
     setDragImg(images.find((i) => `img-${i.id}` === e.active.id) ?? null)
@@ -214,16 +213,22 @@ export function LibraryMode(): React.JSX.Element {
       }}
       onDrop={(e) => void onDrop(e)}
     >
-      {/* 툴바 */}
-      <div className="flex items-center gap-1.5 border-b border-line px-3 py-2">
+      {/* 툴바 — 모바일(≤819px): 구조는 그대로 두고 좁은 폭에서 가로 스크롤 + 터치 타깃 확대
+          (SPEC.md M-P3 합의 ③ · 열 수 2~5와 각 설정은 데스크톱과 동일하게 유지) */}
+      <div className="flex items-center gap-1.5 border-b border-line px-3 py-2 no-scrollbar mobile:overflow-x-auto">
         {currentStack ? (
           <>
-            <Button size="sm" variant="ghost" className="gap-1" onClick={() => openStack(null)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="shrink-0 gap-1 mobile:h-11"
+              onClick={() => openStack(null)}
+            >
               <ArrowLeft size={15} /> 라이브러리
             </Button>
-            <span className="text-[13.5px] font-semibold">{currentStack.name}</span>
+            <span className="shrink-0 text-[13.5px] font-semibold">{currentStack.name}</span>
             <button
-              className="grid size-6 place-items-center rounded text-faint transition-colors hover:text-ink"
+              className="grid size-6 shrink-0 place-items-center rounded text-faint transition-colors hover:text-ink mobile:size-11"
               title="스택 이름 변경"
               onClick={async () => {
                 const name = await askText('스택 이름', currentStack.name)
@@ -235,11 +240,11 @@ export function LibraryMode(): React.JSX.Element {
           </>
         ) : (
           <>
-            <Library size={15} className="text-accent" />
-            <span className="text-[13.5px] font-semibold">라이브러리</span>
+            <Library size={15} className="shrink-0 text-accent" />
+            <span className="shrink-0 text-[13.5px] font-semibold">라이브러리</span>
           </>
         )}
-        <span className="font-mono text-[11px] text-faint">{total}</span>
+        <span className="shrink-0 font-mono text-[11px] text-faint">{total}</span>
         <div className="flex-1" />
 
         {/* 카드 비율: 세로/가로/정사각 (씬 모드와 동일 순환) */}
@@ -271,13 +276,14 @@ export function LibraryMode(): React.JSX.Element {
           }
         />
         {/* 열 수 (2~5) */}
-        <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
           {[2, 3, 4, 5].map((n) => (
             <button
               key={n}
               onClick={() => setColumns(n)}
               className={cn(
-                'grid size-6 place-items-center rounded text-[11.5px] font-medium transition-colors',
+                // 모바일: 터치 타깃 44px(size-11) — 규약의 터치 조항
+                'grid size-6 place-items-center rounded text-[11.5px] font-medium transition-colors mobile:size-11',
                 columns === n ? 'bg-paper text-ink shadow-sm' : 'text-faint hover:text-ink'
               )}
             >
@@ -525,8 +531,9 @@ function ImageCard({
         ref={sortable.setNodeRef}
         {...sortable.attributes}
         {...sortable.listeners}
+        // touch-manipulation: 터치 스크롤 허용(드래그는 롱프레스로 시작) — 마우스에는 무영향
         className={cn(
-          'group relative cursor-pointer touch-none overflow-hidden rounded-lg border bg-surface-2 transition',
+          'group relative cursor-pointer touch-manipulation overflow-hidden rounded-lg border bg-surface-2 transition',
           editMode && checked ? 'border-accent ring-2 ring-accent/40' : 'border-line'
         )}
         style={{ aspectRatio: CARD_ASPECT[orientation], ...dndStyle(sortable) }}
@@ -644,7 +651,8 @@ function IconBtn({
         <button
           onClick={onClick}
           className={cn(
-            'grid size-8 place-items-center rounded-md transition-colors',
+            // 모바일: 터치 타깃 44px(size-11) — 규약의 터치 조항
+            'grid size-8 shrink-0 place-items-center rounded-md transition-colors mobile:size-11',
             active ? 'bg-accent text-white' : 'text-muted hover:bg-surface-2 hover:text-fg'
           )}
         >
