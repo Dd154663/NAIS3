@@ -13,17 +13,20 @@ import { PromptSheet, type SheetSnap } from './prompt-sheet'
 import { TopBar } from './top-bar'
 
 /**
- * 모바일 셸 — 세로 플렉스: 상단 바 / 중앙 콘텐츠 / (메인 모드) 프롬프트 시트 / 생성 바.
+ * 모바일 셸 — 세로 플렉스: 상단 바 / 중앙 콘텐츠 / (메인·씬 모드) 프롬프트 시트 / 생성 바.
  *
- * 중앙 콘텐츠는 데스크톱 App.tsx와 같은 centerMode 스위치를 그대로 쓴다 (모드 내부의
- * 모바일 적응은 다음 차수). 하단 바는 모드가 소유 — 메인 = 생성 바, 그 외 모드의 하단 바
- * 구성은 다음 차수 합의 대상이라 콘텐츠만 표시한다.
+ * 중앙 콘텐츠는 데스크톱 App.tsx와 같은 centerMode 스위치를 그대로 쓴다. 하단 바는 모드가
+ * 소유 — 메인·씬 = 생성 바 + 프롬프트 시트, 디렉터·라이브러리·웹 = 콘텐츠만.
  */
 export function MobileShell(): React.JSX.Element {
   const centerMode = useLayoutStore((s) => s.centerMode)
   const [snap, setSnap] = useState<SheetSnap>('closed')
   const [historyOpen, setHistoryOpen] = useState(false)
-  const isMain = centerMode === 'main'
+  // 하단 세트(프롬프트 시트 + 생성 바)를 가지는 모드 — 데스크톱 App.tsx가 씬 모드에서도
+  // 좌측 프롬프트 패널(생성 행 포함)을 그대로 유지하는 것과 동형. 시트의 프롬프트는
+  // 베이스 프롬프트라 씬 생성 결과(베이스+씬 결합)에 실제로 쓰이고, 생성 버튼은
+  // GenerateRow의 '씬 생성 (n장)' 상태로 알아서 바뀐다 (SPEC.md M-P4 합의 1-A)
+  const hasGenDock = centerMode === 'main' || centerMode === 'scene'
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -37,7 +40,7 @@ export function MobileShell(): React.JSX.Element {
         <div
           className={cn(
             'relative flex min-h-0 flex-1 flex-col overflow-hidden px-2',
-            isMain && snap === 'full' ? 'pb-0' : 'pb-2'
+            hasGenDock && snap === 'full' ? 'pb-0' : 'pb-2'
           )}
         >
           {centerMode === 'scene' ? (
@@ -53,7 +56,7 @@ export function MobileShell(): React.JSX.Element {
           )}
           {/* 시트 밖(중앙 콘텐츠) 딤 — 탭하면 시트 닫힘. 드로어(z-50)보다 아래 */}
           <AnimatePresence>
-            {isMain && snap !== 'closed' && (
+            {hasGenDock && snap !== 'closed' && (
               <motion.div
                 key="sheet-dim"
                 className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm"
@@ -67,12 +70,12 @@ export function MobileShell(): React.JSX.Element {
           </AnimatePresence>
         </div>
 
-        {isMain && <PromptSheet snap={snap} onSnapChange={setSnap} />}
+        {hasGenDock && <PromptSheet snap={snap} onSnapChange={setSnap} />}
 
         <HistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
       </div>
 
-      {isMain && (
+      {hasGenDock && (
         <GenBar historyOpen={historyOpen} onToggleHistory={() => setHistoryOpen((v) => !v)} />
       )}
     </div>

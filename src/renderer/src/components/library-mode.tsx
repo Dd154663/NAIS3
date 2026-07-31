@@ -221,14 +221,14 @@ export function LibraryMode(): React.JSX.Element {
             <Button
               size="sm"
               variant="ghost"
-              className="shrink-0 gap-1 mobile:h-11"
+              className="gap-1 mobile:h-11 mobile:shrink-0"
               onClick={() => openStack(null)}
             >
               <ArrowLeft size={15} /> 라이브러리
             </Button>
-            <span className="shrink-0 text-[13.5px] font-semibold">{currentStack.name}</span>
+            <span className="text-[13.5px] font-semibold mobile:shrink-0">{currentStack.name}</span>
             <button
-              className="grid size-6 shrink-0 place-items-center rounded text-faint transition-colors hover:text-ink mobile:size-11"
+              className="grid size-6 place-items-center rounded text-faint transition-colors hover:text-ink mobile:size-11 mobile:shrink-0"
               title="스택 이름 변경"
               onClick={async () => {
                 const name = await askText('스택 이름', currentStack.name)
@@ -240,11 +240,11 @@ export function LibraryMode(): React.JSX.Element {
           </>
         ) : (
           <>
-            <Library size={15} className="shrink-0 text-accent" />
-            <span className="shrink-0 text-[13.5px] font-semibold">라이브러리</span>
+            <Library size={15} className="text-accent mobile:shrink-0" />
+            <span className="text-[13.5px] font-semibold mobile:shrink-0">라이브러리</span>
           </>
         )}
-        <span className="shrink-0 font-mono text-[11px] text-faint">{total}</span>
+        <span className="font-mono text-[11px] text-faint mobile:shrink-0">{total}</span>
         <div className="flex-1" />
 
         {/* 카드 비율: 세로/가로/정사각 (씬 모드와 동일 순환) */}
@@ -276,7 +276,7 @@ export function LibraryMode(): React.JSX.Element {
           }
         />
         {/* 열 수 (2~5) */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
+        <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5 mobile:shrink-0">
           {[2, 3, 4, 5].map((n) => (
             <button
               key={n}
@@ -652,7 +652,7 @@ function IconBtn({
           onClick={onClick}
           className={cn(
             // 모바일: 터치 타깃 44px(size-11) — 규약의 터치 조항
-            'grid size-8 shrink-0 place-items-center rounded-md transition-colors mobile:size-11',
+            'grid size-8 place-items-center rounded-md transition-colors mobile:size-11 mobile:shrink-0',
             active ? 'bg-accent text-white' : 'text-muted hover:bg-surface-2 hover:text-fg'
           )}
         >

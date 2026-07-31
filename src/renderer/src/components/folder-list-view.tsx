@@ -1,12 +1,4 @@
-import {
-  closestCenter,
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent
-} from '@dnd-kit/core'
+import { closestCenter, DndContext, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import {
   rectSortingStrategy,
@@ -19,6 +11,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { memo, useState, type CSSProperties } from 'react'
 import { FOLDER_COLORS, type ListFolder } from '@shared/types'
 import { cn } from '../lib/utils'
+import { useDndSensors } from '../lib/dnd-sensors'
 import { DIVIDER_KEY, rowKey, type DisplayRow, type FolderListItem } from '../lib/folder-list'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 import { Button } from './ui/button'
@@ -70,7 +63,8 @@ function GridItem({
     <div
       ref={sortable.setNodeRef}
       style={dndStyle(sortable, true)}
-      className={cn('touch-none', sortable.isDragging && 'z-20 opacity-70')}
+      // touch-manipulation: 터치 스크롤 허용(드래그는 롱프레스로 시작) — 마우스에는 무영향
+      className={cn('touch-manipulation', sortable.isDragging && 'z-20 opacity-70')}
       {...sortable.attributes}
       {...sortable.listeners}
     >
@@ -415,7 +409,9 @@ export function FolderListView<T extends FolderListItem>({
   renderKey?: unknown
 }): React.JSX.Element {
   const grid = renderTile != null && columns != null
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  // 마우스 5px 이동해야 시작(기존과 동일) + 터치는 롱프레스 — 목록 스크롤과 드래그 공존
+  // (sortable-list.tsx와 같은 공용 훅)
+  const sensors = useDndSensors(5)
   // 폴더 드래그 중엔 소속 카드를 임시로 접는다 — "따라오는지 애매한" UX 제거
   const [draggingFolderId, setDraggingFolderId] = useState<number | null>(null)
 
