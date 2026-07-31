@@ -3,7 +3,6 @@ import { estimateAnlas } from '@shared/anlas'
 import { cn } from '../lib/utils'
 import { PAGES } from '../components/page-nav'
 import { AnlasChips } from '../components/titlebar'
-import { ThemeToggle } from '../components/theme-toggle'
 import { useGenerationStore } from '../stores/generation-store'
 import { useLayoutStore } from '../stores/layout-store'
 import { useCharRefsStore, useVibesStore } from '../stores/refs-store'
@@ -12,8 +11,9 @@ import { useCharRefsStore, useVibesStore } from '../stores/refs-store'
 const TAP = 'grid size-11 shrink-0 place-items-center rounded-md transition-colors'
 
 /**
- * 상단 바 (전 모드 공통 고정). 좌측 Anlas 칩 + 테마 토글 / 중앙 모드 아이콘 내비 /
- * 우측 설정. 창 컨트롤(─□✕)은 웹·모바일에 없다.
+ * 상단 바 (전 모드 공통 고정). 좌측 Anlas 칩 / 중앙 모드 아이콘 내비 / 우측 설정.
+ * 테마 토글은 설정 안 것을 쓴다(좁은 폭에서 내비와 겹쳐 실기기 검수로 제외 —
+ * SPEC.md 상단 바 절). 창 컨트롤(─□✕)은 웹·모바일에 없다.
  */
 export function TopBar(): React.JSX.Element {
   const centerMode = useLayoutStore((s) => s.centerMode)
@@ -43,33 +43,34 @@ export function TopBar(): React.JSX.Element {
   }).total
 
   return (
-    <header className="relative flex h-14 shrink-0 select-none items-center gap-1 bg-paper px-1">
-      {/* 모드 내비 — 상단 바 중앙(데스크톱 타이틀바와 같은 절대 중앙 배치).
-          아이콘·hiddenPages는 데스크톱 PageNav와 동일, 모바일은 아이콘 전용 */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <nav className="pointer-events-auto flex items-center gap-0.5">
-          {visible.map((page) => {
-            const active = centerMode === page.id
-            return (
-              <button
-                key={page.id}
-                onClick={() => setCenterMode(page.id)}
-                title={page.label}
-                aria-label={page.label}
-                className={cn(
-                  TAP,
-                  active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-surface-2'
-                )}
-              >
-                <page.icon className="size-4" />
-              </button>
-            )
-          })}
-        </nav>
-      </div>
-
+    <header className="flex h-14 shrink-0 select-none items-center gap-1 bg-paper px-1">
       <AnlasChips balance={anlasBalance} cost={anlasCost} />
-      <ThemeToggle />
+
+      <div className="min-w-0 flex-1" />
+
+      {/* 모드 내비 — 데스크톱 타이틀바는 절대 중앙이지만, 좁은 폭에선 로그인 시
+          Anlas 칩과 겹치므로 플렉스 흐름 중앙(좌우 스페이서)으로 둔다 — 좌우 폭 차만큼
+          수 px 어긋나는 대신 겹침이 원천 불가능(SPEC.md 검수 반영, 합의된 예외).
+          아이콘·hiddenPages는 데스크톱 PageNav와 동일, 모바일은 아이콘 전용 */}
+      <nav className="flex items-center gap-0.5">
+        {visible.map((page) => {
+          const active = centerMode === page.id
+          return (
+            <button
+              key={page.id}
+              onClick={() => setCenterMode(page.id)}
+              title={page.label}
+              aria-label={page.label}
+              className={cn(
+                TAP,
+                active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-surface-2'
+              )}
+            >
+              <page.icon className="size-4" />
+            </button>
+          )
+        })}
+      </nav>
 
       <div className="min-w-0 flex-1" />
 
