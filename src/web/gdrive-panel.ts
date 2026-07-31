@@ -35,6 +35,12 @@ const CSS = `
   box-shadow: 0 8px 30px rgba(0,0,0,.28); padding: 14px; display: none;
 }
 #nais3-gd-panel.open { display: block; }
+/* 모바일(≤819px, 렌더러 mobile: 변형과 동일 기준): 하단 고정 생성 바(메인·씬 모드)를
+   덮지 않게 칩·패널을 그 위로 올린다 (칩→패널 간격 44px은 데스크톱과 동일하게 유지) */
+@media (max-width: 819px) {
+  #nais3-gd-fab { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  #nais3-gd-panel { bottom: calc(120px + env(safe-area-inset-bottom)); }
+}
 #nais3-gd-panel h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
 .nais3-gd-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; font-size: 13px; }
 .nais3-gd-badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--muted); }
