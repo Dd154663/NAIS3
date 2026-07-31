@@ -24,9 +24,6 @@ import {
   closestCenter,
   DndContext,
   DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
   type DragEndEvent,
   type DragStartEvent
 } from '@dnd-kit/core'
@@ -41,6 +38,7 @@ import { useResolutionsStore } from '../stores/resolutions-store'
 import { askConfirm, askText } from '../stores/dialog-store'
 import { toast } from '../stores/toast-store'
 import { cn } from '../lib/utils'
+import { useDndSensors } from '../lib/dnd-sensors'
 import { SceneCastDialog } from './scene-cast-dialog'
 import { SceneDetail } from './scene-detail'
 import { SortableList, SortableRow } from './sortable-list'
@@ -94,7 +92,7 @@ function PresetDropdown(): React.JSX.Element {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button className="flex h-8 min-w-52 items-center gap-1.5 rounded-md border border-line bg-paper px-2.5 text-[13px] font-medium hover:bg-surface-2">
+          <button className="flex h-8 min-w-52 items-center gap-1.5 rounded-md border border-line bg-paper px-2.5 text-[13px] font-medium hover:bg-surface-2 mobile:min-w-36 mobile:shrink-0">
             <span className="min-w-0 flex-1 truncate text-left">{active?.name ?? '프리셋'}</span>
             <ChevronDown size={14} className="shrink-0 text-muted" />
           </button>
@@ -192,7 +190,7 @@ function CastSelector(): React.JSX.Element {
         <PopoverTrigger asChild>
           <button
             className={cn(
-              'flex h-8 max-w-44 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium',
+              'flex h-8 max-w-44 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium mobile:shrink-0',
               !active && 'border-line bg-paper text-muted hover:bg-surface-2'
             )}
             style={
@@ -308,7 +306,8 @@ function IconBtn({
         <button
           onClick={onClick}
           className={cn(
-            'grid size-8 place-items-center rounded-md transition-colors',
+            // 모바일: 터치 타깃 44px(size-11) — 규약의 터치 조항
+            'grid size-8 place-items-center rounded-md transition-colors mobile:size-11 mobile:shrink-0',
             active ? 'bg-accent text-white' : 'text-muted hover:bg-surface-2 hover:text-fg'
           )}
         >
@@ -347,9 +346,10 @@ function SceneGrid(): React.JSX.Element {
     if (el && savedGridScroll > 0 && el.scrollTop === 0) el.scrollTop = savedGridScroll
   }, [scenes.length])
 
-  // 드래그 재정렬 (5px 이동해야 시작 — 클릭과 구분).
+  // 드래그 재정렬 (마우스 5px 이동해야 시작 — 클릭과 구분). 터치는 롱프레스로 시작해
+  // 그리드 스크롤과 공존한다 (sortable-list.tsx와 같은 공용 훅).
   // DragOverlay 사용: 드래그 중엔 가벼운 클론이 커서를 따라가고 원본은 숨겨 프레임 저하 방지
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const sensors = useDndSensors(5)
   const [dragScene, setDragScene] = useState<Scene | null>(null)
   const onDragStart = (e: DragStartEvent): void => {
     setDragScene(scenes.find((s) => `scene-${s.id}` === e.active.id) ?? null)
@@ -389,11 +389,13 @@ function SceneGrid(): React.JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-line bg-surface">
-      {/* 툴바 — 한 행: 프리셋 드롭다운 + 아이콘(툴팁) */}
-      <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
+      {/* 툴바 — 한 행: 프리셋 드롭다운 + 아이콘(툴팁).
+          모바일(≤819px): 구조·순서는 그대로 두고 좁은 폭에서 가로 스크롤 + 터치 타깃 확대
+          (SPEC.md M-P4 합의 2-A · 라이브러리 툴바와 같은 패턴) */}
+      <div className="flex items-center gap-1 border-b border-line px-2 py-1.5 no-scrollbar mobile:overflow-x-auto">
         <PresetDropdown />
         <CastSelector />
-        <div className="mx-1 h-5 w-px bg-line" />
+        <div className="mx-1 h-5 w-px bg-line mobile:shrink-0" />
         <IconBtn icon={<FileDown size={16} />} tip="JSON 내보내기" onClick={exportJson} />
         <IconBtn icon={<FileUp size={16} />} tip="JSON 불러오기" onClick={importJson} />
         <IconBtn
@@ -420,7 +422,7 @@ function SceneGrid(): React.JSX.Element {
           tip="전체 예약 취소"
           onClick={() => void clearReserveAll()}
         />
-        <div className="mx-1 h-5 w-px bg-line" />
+        <div className="mx-1 h-5 w-px bg-line mobile:shrink-0" />
         {/* 카드 비율: 세로/가로/정사각 (해상도와 무관하게 고정) */}
         <IconBtn
           icon={
@@ -450,13 +452,14 @@ function SceneGrid(): React.JSX.Element {
           }
         />
         {/* 열 수 (2~5) */}
-        <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5">
+        <div className="flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5 mobile:shrink-0">
           {[2, 3, 4, 5].map((n) => (
             <button
               key={n}
               onClick={() => setColumns(n)}
               className={cn(
-                'grid h-6 w-6 place-items-center rounded text-[12px] font-medium transition-colors',
+                // 모바일: 터치 타깃 44px(size-11) — 규약의 터치 조항
+                'grid h-6 w-6 place-items-center rounded text-[12px] font-medium transition-colors mobile:size-11',
                 columns === n ? 'bg-paper text-ink shadow-sm' : 'text-muted hover:text-ink'
               )}
             >
@@ -779,8 +782,9 @@ const SceneCard = memo(function SceneCard({
           ref={sortable.setNodeRef}
           {...sortable.attributes}
           {...sortable.listeners}
+          // touch-manipulation: 터치 스크롤 허용(드래그는 롱프레스로 시작) — 마우스에는 무영향
           className={cn(
-            'group relative touch-none overflow-hidden rounded-lg border bg-surface-2 transition',
+            'group relative touch-manipulation overflow-hidden rounded-lg border bg-surface-2 transition',
             editMode && checked ? 'border-accent ring-2 ring-accent/40' : 'border-line',
             sortable.isDragging && 'shadow-xl'
           )}

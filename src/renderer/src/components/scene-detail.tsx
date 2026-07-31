@@ -131,13 +131,17 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-line bg-surface">
-      {/* 헤더 */}
-      <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+      {/* 헤더 — 모바일(≤819px): 구성·순서는 그대로 두고 줄바꿈만 허용해
+          해상도 피커·생성·예약 스테퍼가 다음 행으로 흐르게 한다 (SPEC.md M-P4 합의 3-A).
+          간격을 6px로 좁히면 두 번째 행에 셋이 그대로 들어간다(390px 기준 1px 차이) */}
+      <div className="flex items-center gap-2 border-b border-line px-3 py-2 mobile:flex-wrap mobile:gap-1.5">
         <Button size="sm" variant="ghost" className="gap-1" onClick={() => select(null)}>
           <ArrowLeft size={15} /> 씬 목록
         </Button>
         <input
-          className="min-w-0 flex-1 truncate rounded-md bg-transparent px-2 py-1 text-[15px] font-medium outline-none focus:bg-surface-2"
+          // 모바일: flex-1(basis 0)이라 줄바꿈 없이 60px까지 찌부되므로 최소폭을 준다 —
+          // 이름이 첫 행을 차지하고 해상도 피커부터 다음 행으로 흐른다
+          className="min-w-0 flex-1 truncate rounded-md bg-transparent px-2 py-1 text-[15px] font-medium outline-none focus:bg-surface-2 mobile:min-w-32"
           value={scene.name}
           onChange={(e) => void update(scene.id, { name: e.target.value })}
         />
