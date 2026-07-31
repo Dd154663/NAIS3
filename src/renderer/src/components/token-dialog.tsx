@@ -718,26 +718,41 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* 모바일(≤819px): 풀스크린 + 상단 가로 탭 — SPEC.md M-P3 합의 ①.
+          데스크톱과 같은 두 구획(내비 + 섹션), 방향만 세로→가로로 바뀐다(구조 동형).
+          위치는 ui/dialog.tsx의 중앙 배치를 상쇄하고, 상단은 safe-area 인셋만큼
+          내려 X 닫기 버튼(dialog.tsx의 absolute right-2.5 top-2.5)이 노치에 걸리지 않게 한다 */}
       <DialogContent
         aria-describedby={undefined}
-        className="grid h-[62vh] max-w-[640px] grid-rows-[1fr] gap-0 overflow-hidden p-0"
+        className={cn(
+          'grid h-[62vh] max-w-[640px] grid-rows-[1fr] gap-0 overflow-hidden p-0',
+          // 가로 탭 스트립의 max-content가 grid auto 열을 넓혀 화면 밖으로 밀지 않게 열을 고정
+          'mobile:grid-cols-[minmax(0,1fr)]',
+          'mobile:left-0 mobile:top-[env(safe-area-inset-top)] mobile:translate-x-0 mobile:translate-y-0',
+          'mobile:h-[calc(100dvh-env(safe-area-inset-top))] mobile:max-h-none mobile:w-screen mobile:max-w-none',
+          'mobile:rounded-none mobile:border-0 mobile:pb-[env(safe-area-inset-bottom)]'
+        )}
       >
         <DialogTitle className="sr-only">설정</DialogTitle>
         <Tabs
           value={section}
           onValueChange={(v) => setSection(v as SectionId)}
-          className="flex h-full min-h-0"
+          className="flex h-full min-h-0 mobile:flex-col"
           orientation="vertical"
         >
-          <nav className="flex w-40 shrink-0 flex-col border-r border-line bg-surface-2/50 p-2">
-            <TabsList className="flex flex-col items-stretch gap-0.5 bg-transparent p-0">
+          {/* 모바일: 좌측 세로 내비 → 상단 가로 탭 스트립(넘치면 가로 스크롤) */}
+          {/* pr-10: 우측 상단 X 닫기 버튼(dialog.tsx) 자리를 비워 마지막 탭이 X 밑에 깔리지 않게 */}
+          <nav className="flex w-40 shrink-0 flex-col border-r border-line bg-surface-2/50 p-2 no-scrollbar mobile:w-full mobile:flex-row mobile:overflow-x-auto mobile:border-b mobile:border-r-0 mobile:pr-10">
+            <TabsList className="flex flex-col items-stretch gap-0.5 bg-transparent p-0 mobile:flex-row mobile:items-center">
               {NAV.map(({ id, label, icon: Icon }) => (
                 <TabsTrigger
                   key={id}
                   value={id}
                   className={cn(
                     'flex items-center justify-start gap-2 rounded-md px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:text-ink',
-                    'data-[state=active]:bg-surface data-[state=active]:text-ink data-[state=active]:shadow-none'
+                    'data-[state=active]:bg-surface data-[state=active]:text-ink data-[state=active]:shadow-none',
+                    // 터치 규약: 탭 타깃 44px(h-11) — 라벨은 유지, 좁아도 줄바꿈/축소되지 않게 shrink-0
+                    'mobile:h-11 mobile:shrink-0 mobile:whitespace-nowrap mobile:px-3'
                   )}
                 >
                   <Icon size={14} />
