@@ -139,7 +139,7 @@ export function MaskEditor({
           </div>
 
           {/* 모바일(≤819px): 한 줄에 다 못 들어가 "적용"이 화면 밖으로 밀리므로 줄바꿈 허용
-              (SPEC.md M-P3 오버레이 스윕 — 390×844에서 확인) */}
+              (SPEC.md 오버레이류 합의 — 390×844에서 확인) */}
           <div className="flex w-full items-center gap-2 mobile:flex-wrap">
             <Button
               size="sm"

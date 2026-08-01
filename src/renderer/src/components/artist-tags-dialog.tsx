@@ -49,7 +49,7 @@ export function ArtistTagsDialog(): React.JSX.Element {
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent className="flex max-h-[85vh] max-w-[680px] flex-col p-0">
         {/* mobile pr-10: 좁은 폭에서 부제가 우측 상단 X 버튼 자리까지 밀려 잘리므로 줄바꿈시킨다
-            (SPEC.md M-P3 오버레이 스윕) */}
+            (SPEC.md 오버레이류 합의) */}
         <DialogTitle className="border-b border-line px-5 py-3.5 text-[15px] mobile:pr-10">
           작가 태그 분석{' '}
           <span className="text-[12px] font-normal text-faint">
