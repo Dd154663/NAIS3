@@ -95,7 +95,7 @@ export function WebSearchMode(): React.JSX.Element {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface">
       {/* 주소창 + 네비게이션 — 모바일(≤819px): 한 줄에 못 들어가면 URL 입력이 다음 줄로
-          내려온다(구조·순서는 그대로). SPEC.md M-P3 부가 처리 */}
+          내려온다(구조·순서는 그대로). SPEC.md 모드별 대응 합의의 부가 처리 */}
       <div className="flex items-center gap-1 border-b border-line px-2 py-1.5 mobile:flex-wrap">
         <NavBtn tip="뒤로" disabled={!canBack} onClick={() => webviewRef.current?.goBack()}>
           <ArrowLeft size={15} />

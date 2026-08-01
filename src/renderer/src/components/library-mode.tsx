@@ -214,7 +214,7 @@ export function LibraryMode(): React.JSX.Element {
       onDrop={(e) => void onDrop(e)}
     >
       {/* 툴바 — 모바일(≤819px): 구조는 그대로 두고 좁은 폭에서 가로 스크롤 + 터치 타깃 확대
-          (SPEC.md M-P3 합의 ③ · 열 수 2~5와 각 설정은 데스크톱과 동일하게 유지) */}
+          (SPEC.md 라이브러리 합의 · 열 수 2~5와 각 설정은 데스크톱과 동일하게 유지) */}
       <div className="flex items-center gap-1.5 border-b border-line px-3 py-2 no-scrollbar mobile:overflow-x-auto">
         {currentStack ? (
           <>

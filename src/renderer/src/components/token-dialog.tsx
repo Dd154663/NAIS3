@@ -718,7 +718,7 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* 모바일(≤819px): 풀스크린 + 상단 가로 탭 — SPEC.md M-P3 합의 ①.
+      {/* 모바일(≤819px): 풀스크린 + 상단 가로 탭 — SPEC.md 설정 다이얼로그 합의.
           데스크톱과 같은 두 구획(내비 + 섹션), 방향만 세로→가로로 바뀐다(구조 동형).
           위치는 ui/dialog.tsx의 중앙 배치를 상쇄하고, 상단은 safe-area 인셋만큼
           내려 X 닫기 버튼(dialog.tsx의 absolute right-2.5 top-2.5)이 노치에 걸리지 않게 한다 */}

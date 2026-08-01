@@ -129,7 +129,7 @@ export function DirectorMode(): React.JSX.Element {
   const shown = source ? `data:image/png;base64,${source}` : null
 
   return (
-    // 모바일(≤819px): 같은 두 구획(캔버스 + 툴 패널)을 방향만 세로로 — SPEC.md M-P3 합의 ②.
+    // 모바일(≤819px): 같은 두 구획(캔버스 + 툴 패널)을 방향만 세로로 — SPEC.md 디렉터 합의.
     // 두 구획이 동시에 보이는 것이 조건이라 툴 패널에 화면 42% 고정 비율을 준다.
     <div className="flex min-h-0 flex-1 gap-3 mobile:flex-col">
       {/* 캔버스 */}

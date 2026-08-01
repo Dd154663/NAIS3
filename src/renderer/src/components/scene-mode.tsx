@@ -391,7 +391,7 @@ function SceneGrid(): React.JSX.Element {
     <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-line bg-surface">
       {/* 툴바 — 한 행: 프리셋 드롭다운 + 아이콘(툴팁).
           모바일(≤819px): 구조·순서는 그대로 두고 좁은 폭에서 가로 스크롤 + 터치 타깃 확대
-          (SPEC.md M-P4 합의 2-A · 라이브러리 툴바와 같은 패턴) */}
+          (SPEC.md 씬 모드 합의 · 라이브러리 툴바와 같은 패턴) */}
       <div className="flex items-center gap-1 border-b border-line px-2 py-1.5 no-scrollbar mobile:overflow-x-auto">
         <PresetDropdown />
         <CastSelector />

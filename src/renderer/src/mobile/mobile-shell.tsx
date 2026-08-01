@@ -25,7 +25,7 @@ export function MobileShell(): React.JSX.Element {
   // 하단 세트(프롬프트 시트 + 생성 바)를 가지는 모드 — 데스크톱 App.tsx가 씬 모드에서도
   // 좌측 프롬프트 패널(생성 행 포함)을 그대로 유지하는 것과 동형. 시트의 프롬프트는
   // 베이스 프롬프트라 씬 생성 결과(베이스+씬 결합)에 실제로 쓰이고, 생성 버튼은
-  // GenerateRow의 '씬 생성 (n장)' 상태로 알아서 바뀐다 (SPEC.md M-P4 합의 1-A)
+  // GenerateRow의 '씬 생성 (n장)' 상태로 알아서 바뀐다 (SPEC.md 씬 모드 합의)
   const hasGenDock = centerMode === 'main' || centerMode === 'scene'
 
   return (

@@ -132,7 +132,7 @@ export function SceneDetail({ scene }: { scene: Scene }): React.JSX.Element {
   return (
     <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-line bg-surface">
       {/* 헤더 — 모바일(≤819px): 구성·순서는 그대로 두고 줄바꿈만 허용해
-          해상도 피커·생성·예약 스테퍼가 다음 행으로 흐르게 한다 (SPEC.md M-P4 합의 3-A).
+          해상도 피커·생성·예약 스테퍼가 다음 행으로 흐르게 한다 (SPEC.md 씬 모드 합의).
           간격을 6px로 좁히면 두 번째 행에 셋이 그대로 들어간다(390px 기준 1px 차이) */}
       <div className="flex items-center gap-2 border-b border-line px-3 py-2 mobile:flex-wrap mobile:gap-1.5">
         <Button size="sm" variant="ghost" className="gap-1" onClick={() => select(null)}>
